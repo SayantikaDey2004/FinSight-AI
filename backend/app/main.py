@@ -27,7 +27,9 @@ from app.db.database import (
 )
 from app.models.pydantic_models import ForgotPasswordRequest, LoginRequest, ResetPasswordRequest, SignupRequest
 from app.services.statement_service import analyze_statement_files
+from app.routes.statement_routes import router as statement_router
 from modules.hashed_password import check_password, create_hashed_password
+
 
 
 app = FastAPI(title="FinSightAI API")
@@ -289,7 +291,13 @@ def _statement_user_key(authorization: str | None) -> str:
     return str(decoded.get("email") or decoded.get("id") or decoded.get("sub") or "anonymous")
 
 
+
+
+app.include_router(statement_router)
+
+
 @app.post("/api/v1/statements/upload")
+
 async def upload_statement(files: list[UploadFile] = File(...), authorization: str | None = Header(default=None)):
     try:
         analysis = await analyze_statement_files(files)
