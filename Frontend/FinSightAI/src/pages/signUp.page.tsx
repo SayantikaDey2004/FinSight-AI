@@ -110,25 +110,25 @@ function ParticleCanvas() {
 function FloatingCard({
   className,
   children,
-  style,
 }: {
   className?: string;
   children: React.ReactNode;
-  style?: React.CSSProperties;
 }) {
-  const baseStyle: React.CSSProperties = {
-    position: "absolute",
-    zIndex: 5,
-    borderRadius: 16,
-    padding: "12px 16px",
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    background: "rgba(6,13,26,.7)",
-    border: "1px solid rgba(255,255,255,.1)",
-    boxShadow: "0 20px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08)",
-  };
   return (
-    <div className={className} style={{ ...baseStyle, ...(style ?? {}) }}>
+    <div
+      className={className}
+      style={{
+        position: "absolute",
+        zIndex: 5,
+        borderRadius: 16,
+        padding: "12px 16px",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        background: "rgba(6,13,26,.7)",
+        border: "1px solid rgba(255,255,255,.1)",
+        boxShadow: "0 20px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08)",
+      }}
+    >
       {children}
     </div>
   );
@@ -477,7 +477,7 @@ export default function FinSightAISignUp() {
               </svg>
             </div>
             <div style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: "-.5px", color: "#fff" }}>
-              Statement<em style={{ background: G1, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", fontStyle: "normal" }}>IQ</em>
+              FinSight<em style={{ background: G1, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", fontStyle: "normal" }}>AI</em>
             </div>
             <div style={{ marginLeft: 4, fontSize: 10, fontWeight: 600, letterSpacing: ".08em", padding: "3px 8px", borderRadius: 6, background: "rgba(0,212,255,.12)", border: "1px solid rgba(0,212,255,.2)", color: "#00d4ff", textTransform: "uppercase", fontFamily: "Inter,sans-serif" }}>
               Beta
@@ -607,7 +607,7 @@ export default function FinSightAISignUp() {
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 24, fontWeight: 800, color: "#fff", letterSpacing: "-.5px", marginBottom: 5 }}>Create your account</div>
             <div style={{ fontSize: 13, color: "rgba(100,116,139,.9)", lineHeight: 1.5 }}>
-              Smarter Insights.· <strong style={{ color: "rgba(148,163,184,.8)", fontWeight: 500 }}>Better Finances.</strong>
+              Free for 14 days · <strong style={{ color: "rgba(148,163,184,.8)", fontWeight: 500 }}>No credit card required</strong>
             </div>
           </div>
 
