@@ -163,7 +163,7 @@ export default function LoginPage() {
       </div>
 
       <motion.div
-        className="w-full max-w-[420px] relative z-10"
+        className="w-full max-w-105 relative z-10"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -377,8 +377,17 @@ export default function LoginPage() {
 
                 <motion.p variants={itemVariants} className="text-center text-sm text-slate-500">
                   Don't have an account?{" "}
+<<<<<<< HEAD
                   <Link
                     to="/signup"
+=======
+                  <a
+                    href="#"
+                    onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                      e.preventDefault();
+                      navigate("/signup");
+                    }}
+>>>>>>> c42d8402c522616f2eed2ebc684b66443990b9b5
                     className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-150 rounded"
                   >
                     Create Account
