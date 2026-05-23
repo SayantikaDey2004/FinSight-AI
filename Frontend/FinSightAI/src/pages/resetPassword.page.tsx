@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AuthShell from "../components/AuthShell";
+import { ApiError, resetPassword as resetPasswordRequest } from "../services/authApi";
 
 function isStrong(v: string): boolean {
   return v.length >= 8 && /[A-Z]/.test(v) && /[a-z]/.test(v) && /[0-9]/.test(v);
@@ -229,7 +231,7 @@ function ErrBox({ msg }: { msg?: string }) {
 }
 
 /* ══ Reset Password Form ══ */
-function ResetForm({ onDone, onBack, onRequestNew }: { onDone?: () => void; onBack?: () => void; onRequestNew?: () => void }) {
+function ResetForm({ token, onDone, onBack, onRequestNew }: { token: string; onDone?: () => void; onBack?: () => void; onRequestNew?: () => void }) {
   const [pw, setPw] = useState("");
   const [cf, setCf] = useState("");
   const [loading, setLoading] = useState(false);
@@ -242,13 +244,20 @@ function ResetForm({ onDone, onBack, onRequestNew }: { onDone?: () => void; onBa
   const display = err || pwErr || cfErr;
   const s = getStrength(pw);
 
-  function submit(e: React.FormEvent<HTMLFormElement>) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setErr("");
+    if (!token) { setErr("Missing reset token. Please request a new reset email."); return; }
     if (!pw || !cf) { setErr("Both fields are required."); return; }
     if (!isStrong(pw)) { setErr("Use 8+ chars with uppercase, lowercase & a number."); return; }
     if (pw !== cf) { setErr("Passwords do not match."); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); if (onDone) onDone(); }, 900);
+    try {
+      await resetPasswordRequest({ token, new_password: pw });
+      if (onDone) onDone();
+    } catch (error) {
+      setErr(error instanceof ApiError ? error.message : "Unable to reset the password right now.");
+      setLoading(false);
+    }
   }
 
   return (
@@ -408,9 +417,12 @@ function SuccessScreen({ onLogin }: { onLogin?: () => void }) {
 /* ══ ROOT ══ */
 export default function ResetPasswordPage(): React.ReactElement {
   const [done, setDone] = useState(false);
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") ?? "";
 
-  function goToLogin() { alert("Redirecting to login page…"); }
-  function requestNew() { alert("Redirecting to forgot password…"); }
+  const navigate = useNavigate();
+  function goToLogin() { navigate("/login"); }
+  function requestNew() { navigate("/forgot-password"); }
 
   return (
     <>
@@ -439,7 +451,34 @@ export default function ResetPasswordPage(): React.ReactElement {
       <AuthShell>
         <div className="rp-wrap">
           {!done
-            ? <ResetForm onDone={() => setDone(true)} onBack={goToLogin} onRequestNew={requestNew} />
+            ? token
+              ? <ResetForm token={token} onDone={() => setDone(true)} onBack={goToLogin} onRequestNew={requestNew} />
+              : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 72, height: 72, borderRadius: 20, background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.25)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 32px rgba(129,140,248,0.15)" }}>
+                      <ResetIcon />
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <h1 style={{ fontSize: "1.9rem", fontWeight: 800, color: "#f1f5f9", margin: "0 0 6px", letterSpacing: "-0.02em" }}>
+                        Reset Password
+                      </h1>
+                      <p style={{ fontSize: "0.88rem", color: "#64748b", margin: 0 }}>
+                        Open the password reset link from your email to continue.
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ background: "linear-gradient(160deg, #0d1424 0%, #090f1e 100%)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 20, padding: "2rem", boxShadow: "0 0 0 1px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.55)", display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 10, padding: "12px 14px", fontSize: "0.8rem", color: "#c7d2fe", lineHeight: 1.6 }}>
+                      This page now expects the token from the reset email. If you don't have one, request a new reset link.
+                    </div>
+                    <PrimaryBtn type="button" onClick={requestNew}>
+                      <span>Request reset link</span><ArrowRight />
+                    </PrimaryBtn>
+                    <BackBtn onClick={goToLogin} />
+                  </div>
+                </div>
+              )
             : <SuccessScreen onLogin={goToLogin} />
           }
         </div>

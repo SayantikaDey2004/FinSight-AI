@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence, useAnimation, Variants } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import type { Variants } from "framer-motion";
+import { Link } from "react-router-dom";
 import {
   Eye,
   EyeOff,
@@ -16,6 +19,7 @@ import {
   Wallet,
   PieChart,
 } from "lucide-react";
+import { ApiError, login as loginRequest, persistAuthSession } from "../services/authApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -365,11 +369,18 @@ const GlassInput: React.FC<InputProps> = ({
 // ─── Main LoginPage ───────────────────────────────────────────────────────────
 
 const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [mounted, setMounted] = useState(false);
   const [form, setForm] = useState<FormState>({ email: "", password: "", rememberMe: false });
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -388,11 +399,25 @@ const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError("");
     if (!validate()) return;
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    setIsLoading(false);
-    setLoginSuccess(true);
+    try {
+      const result = await loginRequest({
+        email: form.email.trim(),
+        password: form.password,
+      });
+      persistAuthSession(result, form.rememberMe);
+      setLoginSuccess(true);
+      window.setTimeout(() => navigate("/dashboard", { replace: true }), 800);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setSubmitError(error.message);
+      } else {
+        setSubmitError("Unable to sign in right now. Please try again.");
+      }
+      setIsLoading(false);
+    }
   };
 
   // Framer Motion variants
@@ -404,6 +429,21 @@ const LoginPage: React.FC = () => {
     hidden: { opacity: 0, y: 18 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } },
   };
+
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `
+      @keyframes siqPageRise{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+      @keyframes siqOrbFloat{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-10px,0)}}
+      @keyframes siqGlowPulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+      .siq-page-rise{animation:siqPageRise .7s cubic-bezier(.22,1,.36,1) both;}
+      .siq-orb{animation:siqOrbFloat 10s ease-in-out infinite;}
+      .siq-orb-alt{animation:siqOrbFloat 12s ease-in-out infinite 2s;}
+      .siq-glow{animation:siqGlowPulse 7s ease-in-out infinite;}
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
 
   const floatingCards: FloatingCard[] = [
     { id: 1, x: 5, y: 12, title: "Portfolio Value", value: "$284,920", change: "+4.7% this week", positive: true, icon: <Wallet className="w-4 h-4" />, delay: 0 },
@@ -427,10 +467,9 @@ const LoginPage: React.FC = () => {
         background: "radial-gradient(ellipse 80% 60% at 20% 50%, rgba(15,23,56,1) 0%, rgba(7,11,28,1) 60%, rgba(4,6,18,1) 100%)",
       }}
     >
-      {/* Global gradient overlays */}
       <div className="absolute inset-0 pointer-events-none">
         <div
-          className="absolute"
+          className="absolute siq-orb"
           style={{
             width: 700, height: 700,
             borderRadius: "50%",
@@ -439,7 +478,7 @@ const LoginPage: React.FC = () => {
           }}
         />
         <div
-          className="absolute"
+          className="absolute siq-orb-alt"
           style={{
             width: 500, height: 500,
             borderRadius: "50%",
@@ -448,7 +487,7 @@ const LoginPage: React.FC = () => {
           }}
         />
         <div
-          className="absolute"
+          className="absolute siq-glow"
           style={{
             width: 400, height: 400,
             borderRadius: "50%",
@@ -459,7 +498,7 @@ const LoginPage: React.FC = () => {
       </div>
 
       {/* ── LEFT PANEL ────────────────────────────────────────────────── */}
-      <div className="hidden lg:flex flex-1 relative flex-col justify-between px-16 py-12 overflow-hidden">
+      <div className={`hidden lg:flex flex-1 relative flex-col justify-between px-16 py-12 overflow-hidden ${mounted ? "siq-page-rise" : ""}`}>
         <ParticleCanvas />
         {floatingCards.map((c) => <FloatingCard key={c.id} {...c} />)}
         {bubbles.map((b, i) => <CategoryBubble key={i} {...b} />)}
@@ -506,8 +545,6 @@ const LoginPage: React.FC = () => {
             AI-powered financial clarity. See where every dollar goes — and where it should go next.
           </p>
         </motion.div>
-
-        {/* Feature Highlights */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -558,7 +595,7 @@ const LoginPage: React.FC = () => {
       {/* ── RIGHT PANEL ───────────────────────────────────────────────── */}
       <div className="w-full lg:w-[480px] xl:w-[520px] flex flex-col items-center justify-center px-6 sm:px-10 py-12 relative z-10">
         <motion.div
-          className="w-full max-w-[420px]"
+          className={`w-full max-w-[420px] ${mounted ? "siq-page-rise" : ""}`}
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -631,6 +668,16 @@ const LoginPage: React.FC = () => {
                     <h2 className="text-3xl font-extrabold text-white tracking-tight">Sign in</h2>
                     <p className="text-slate-400 text-sm mt-1">to your financial intelligence hub</p>
                   </motion.div>
+
+                  {submitError && (
+                    <motion.div
+                      variants={itemVariants}
+                      className="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+                      role="alert"
+                    >
+                      {submitError}
+                    </motion.div>
+                  )}
 
                   {/* Email */}
                   <motion.div variants={itemVariants}>
@@ -705,12 +752,12 @@ const LoginPage: React.FC = () => {
                       </div>
                       <span className="text-slate-400 text-sm group-hover:text-slate-300 transition-colors">Remember me</span>
                     </label>
-                    <a
-                      href="#"
+                    <Link
+                      to="/forgot-password"
                       className="text-sm text-blue-400 hover:text-blue-300 transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 rounded"
                     >
                       Forgot password?
-                    </a>
+                    </Link>
                   </motion.div>
 
                   {/* Submit */}
@@ -731,6 +778,7 @@ const LoginPage: React.FC = () => {
                         opacity: isLoading ? 0.8 : 1,
                       }}
                       aria-busy={isLoading}
+                      aria-disabled={isLoading}
                     >
                       {/* shimmer */}
                       {!isLoading && (
@@ -762,12 +810,12 @@ const LoginPage: React.FC = () => {
                   {/* Sign Up */}
                   <motion.p variants={itemVariants} className="text-center text-sm text-slate-500">
                     Don't have an account?{" "}
-                    <a
-                      href="#"
+                    <Link
+                      to="/signup"
                       className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 rounded"
                     >
                       Create Account
-                    </a>
+                    </Link>
                   </motion.p>
 
                   {/* Trust indicators */}
@@ -796,11 +844,11 @@ const LoginPage: React.FC = () => {
             variants={itemVariants}
             className="text-center text-xs text-slate-600 mt-6 space-x-3"
           >
-            <a href="#" className="hover:text-slate-400 transition-colors">Privacy Policy</a>
+            <a href="#" onClick={(e) => e.preventDefault()} className="hover:text-slate-400 transition-colors">Privacy Policy</a>
             <span>·</span>
-            <a href="#" className="hover:text-slate-400 transition-colors">Terms of Service</a>
+            <a href="#" onClick={(e) => e.preventDefault()} className="hover:text-slate-400 transition-colors">Terms of Service</a>
             <span>·</span>
-            <a href="#" className="hover:text-slate-400 transition-colors">Security</a>
+            <a href="#" onClick={(e) => e.preventDefault()} className="hover:text-slate-400 transition-colors">Security</a>
           </motion.p>
         </motion.div>
       </div>

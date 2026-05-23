@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 // ─────────────────────────────────────────────────────────
 // DESIGN DIRECTION: "Surgical Precision" — financial data
@@ -750,12 +751,19 @@ function DashMock() {
 
 // ── Main App ───────────────────────────────────────────────
 export default function StatementIQ() {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [authMenuOpen, setAuthMenuOpen] = useState(false);
 
-  // 🔗 Connect these to your own routes / router
-  const goSignup = () => { /* e.g. navigate('/signup') or window.location.href='/signup' */ };
-  const goLogin  = () => { /* e.g. navigate('/login')  or window.location.href='/login'  */ };
+  const goTo = (path: string) => {
+    setMenuOpen(false);
+    setAuthMenuOpen(false);
+    navigate(path);
+  };
+
+  const goSignup = () => goTo("/signup");
+  const goLogin = () => goTo("/login");
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 24);
@@ -798,14 +806,28 @@ export default function StatementIQ() {
         {navLinks.map(n => (
           <button key={n.id} className="nav-link" style={{ fontSize:28 }} onClick={() => go(n.id)}>{n.label}</button>
         ))}
-        <div style={{ display:'flex', gap:12 }}>
+        <div style={{ display:'flex', gap:12, flexWrap:'wrap', justifyContent:'center' }}>
           <button className="btn-ghost" style={{ fontSize:15, padding:'12px 28px' }} onClick={goLogin}>
             Sign in
           </button>
-          <button className="btn-primary" style={{ fontSize:15, padding:'12px 28px' }} onClick={goSignup}>
+          <button
+            className="btn-primary"
+            style={{ fontSize:15, padding:'12px 28px' }}
+            onClick={() => setAuthMenuOpen((open) => !open)}
+          >
             Get started
           </button>
         </div>
+        {authMenuOpen && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10, width:'min(320px, 90vw)' }}>
+            <button className="btn-ghost" style={{ justifyContent:'center' }} onClick={goLogin}>
+              Sign in
+            </button>
+            <button className="btn-primary" style={{ justifyContent:'center' }} onClick={goLogin}>
+              Login
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ══ NAV ══ */}
@@ -828,13 +850,37 @@ export default function StatementIQ() {
             ))}
           </div>
 
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, position:'relative' }}>
             <button className="nav-link" style={{ padding:'7px 14px', border:'1px solid var(--wire-2)', borderRadius:8 }} onClick={goLogin}>
               Sign in
             </button>
-            <button className="nav-cta" onClick={goSignup}>
+            <button className="nav-cta" onClick={() => setAuthMenuOpen((open) => !open)}>
               Get started
             </button>
+            {authMenuOpen && (
+              <div style={{
+                position:'absolute',
+                top:'calc(100% + 12px)',
+                right:0,
+                width:220,
+                padding:12,
+                borderRadius:14,
+                background:'rgba(10,14,22,0.98)',
+                border:'1px solid var(--wire-2)',
+                boxShadow:'0 24px 50px rgba(0,0,0,0.45)',
+                display:'flex',
+                flexDirection:'column',
+                gap:10,
+                zIndex:120,
+              }}>
+                <button className="btn-ghost" style={{ justifyContent:'center', padding:'11px 16px' }} onClick={goLogin}>
+                  Sign in
+                </button>
+                <button className="btn-primary" style={{ justifyContent:'center', padding:'11px 16px' }} onClick={goLogin}>
+                  Login
+                </button>
+              </div>
+            )}
           </div>
 
           <button className={`hamburger ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">

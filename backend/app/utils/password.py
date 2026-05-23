@@ -1,9 +1,14 @@
 
-from bcrypt import hashpw,checkpw,gensalt
+from bcrypt import hashpw, checkpw, gensalt
 
-def hash_password(password:str)->bytes:
-    new_hasshed_password=hashpw(password.encode("UTF-8"),gensalt(20))
-    return new_hasshed_password
-def verify_password(password:str,hashed_pw:bytes)->bool:
-    return checkpw(password.encode("UTF-8"),hashed_pw)
+
+def hash_password(password: str) -> str:
+    new_hashed_password = hashpw(password.encode("UTF-8"), gensalt(12))
+    return new_hashed_password.decode("UTF-8")
+
+
+def verify_password(password: str, hashed_pw: str | bytes) -> bool:
+    if isinstance(hashed_pw, str):
+        hashed_pw = hashed_pw.encode("UTF-8")
+    return checkpw(password.encode("UTF-8"), hashed_pw)
 

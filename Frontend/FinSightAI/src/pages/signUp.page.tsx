@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { ApiError, persistAuthSession, signup as signupRequest } from "../services/authApi";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Particle {
@@ -294,6 +297,7 @@ function InputField({
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function FinSightAISignUp() {
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -311,6 +315,7 @@ export default function FinSightAISignUp() {
   });
 
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success">("idle");
+  const [submitError, setSubmitError] = useState("");
 
   const nameOk = fullName.trim().length >= 2;
   const emailOk = isValidEmail(email);
@@ -324,11 +329,24 @@ export default function FinSightAISignUp() {
   const errCpw = touched.confirmPassword && !cpwOk;
   const errTerms = touched.terms && !termsOk;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     setTouched({ fullName: true, email: true, password: true, confirmPassword: true, terms: true });
+    setSubmitError("");
     if (!nameOk || !emailOk || !pwOk || !cpwOk || !termsOk) return;
     setSubmitState("loading");
-    setTimeout(() => setSubmitState("success"), 2000);
+    try {
+      const result = await signupRequest({
+        name: fullName.trim(),
+        email: email.trim(),
+        password,
+      });
+      persistAuthSession(result, true);
+      setSubmitState("success");
+      window.setTimeout(() => navigate("/dashboard", { replace: true }), 800);
+    } catch (error) {
+      setSubmitState("idle");
+      setSubmitError(error instanceof ApiError ? error.message : "Unable to create the account right now. Please try again.");
+    }
   }
 
   // ── CSS keyframes injected once ───────────────────────────────────────
@@ -681,6 +699,12 @@ export default function FinSightAISignUp() {
             </div>
           )}
 
+          {submitError && (
+            <div style={{ padding: "12px 16px", borderRadius: 14, border: "1px solid rgba(244,63,94,.25)", background: "rgba(244,63,94,.08)", marginBottom: 18, color: "#fecdd3", fontSize: 12, lineHeight: 1.5 }}>
+              {submitError}
+            </div>
+          )}
+
           {/* Fields */}
           <div
             style={{
@@ -812,9 +836,9 @@ export default function FinSightAISignUp() {
 
           <div style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: "rgba(71,85,105,.8)" }}>
             Already have an account?{" "}
-            <a href="#" style={{ color: "#00d4ff", fontWeight: 600, textDecoration: "none", borderBottom: "1px solid rgba(0,212,255,.3)", paddingBottom: 1 }}>
+            <Link to="/login" style={{ color: "#00d4ff", fontWeight: 600, textDecoration: "none", borderBottom: "1px solid rgba(0,212,255,.3)", paddingBottom: 1 }}>
               Sign in →
-            </a>
+            </Link>
           </div>
         </div>
 

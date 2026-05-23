@@ -22,6 +22,12 @@ async def send_password_reset_email(email: str, name: str, token: str):
     The link points to your frontend's reset-password page,
     which will then call POST /auth/reset-password with the token.
     """
+    if not settings.MAIL_USERNAME or not settings.MAIL_PASSWORD:
+        reset_link = f"{settings.CLIENT_URL}/reset-password?token={token}"
+        print(f"[email disabled] Password reset link for {email}: {reset_link}"
+        )
+        return
+
     reset_link = f"{settings.CLIENT_URL}/reset-password?token={token}"
 
     html_body = f"""
@@ -56,6 +62,10 @@ async def send_password_reset_email(email: str, name: str, token: str):
 
 async def send_welcome_email(email: str, name: str):
     """Optional: Send a welcome email on signup."""
+    if not settings.MAIL_USERNAME or not settings.MAIL_PASSWORD:
+        print(f"[email disabled] Welcome email skipped for {email}")
+        return
+
     html_body = f"""
     <html>
       <body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;">

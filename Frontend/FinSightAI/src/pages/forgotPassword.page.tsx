@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import AuthShell from "../components/AuthShell";
+import { ApiError, forgotPassword as forgotPasswordRequest } from "../services/authApi";
 
 function isStrong(v: string): boolean {
   return v.length >= 8 && /[A-Z]/.test(v) && /[a-z]/.test(v) && /[0-9]/.test(v);
@@ -308,12 +310,18 @@ function EmailStep({ onNext, onGoToLogin }: { onNext: (email: string) => void; o
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  function submit(e: React.FormEvent<HTMLFormElement>) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setErr("");
     if (!email) { setErr("Please enter your email address."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr("Enter a valid email address."); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); onNext(email); }, 900);
+    try {
+      await forgotPasswordRequest({ email });
+      onNext(email);
+    } catch (error) {
+      setErr(error instanceof ApiError ? error.message : "Unable to send reset email right now.");
+      setLoading(false);
+    }
   }
 
   return (
@@ -504,11 +512,12 @@ export default function ResetPassword(): React.ReactElement {
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState("");
 
-  // Replace alert + reset with router.push('/login') in a real app
+  const navigate = useNavigate();
+  // Replace alert + reset with router navigation
   function goToLogin() {
     setStep(0);
     setEmail("");
-    alert("Redirecting to login page…");
+    navigate("/login");
   }
 
   return (
