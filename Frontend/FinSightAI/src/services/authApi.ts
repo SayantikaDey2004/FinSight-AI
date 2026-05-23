@@ -22,6 +22,8 @@ export interface ProfileUpdatePayload {
 export interface MessageResponse {
   message: string;
   success?: boolean;
+  reset_token?: string;
+  reset_url?: string;
 }
 
 export interface StatementTransaction {

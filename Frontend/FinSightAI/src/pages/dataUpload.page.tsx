@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { Toast } from "../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, BarChart3, Brain, CheckCircle, CloudUpload, File, RefreshCw, Target, Upload, Wallet } from "lucide-react";
 import { saveUploadSnapshot } from "../lib/transactionStore";
@@ -34,6 +35,7 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   const uploadedCount = useMemo(() => files.filter((item) => item.status === "done").length, [files]);
 
@@ -68,6 +70,7 @@ export default function UploadPage() {
       return;
     }
 
+
     setUploading(true);
     setError("");
     setDone(false);
@@ -82,7 +85,8 @@ export default function UploadPage() {
       saveUploadSnapshot(analysis.files, analysis.transactions);
 
       setDone(true);
-      window.setTimeout(() => navigate("/transactions"), 700);
+      setToast("Upload successful! Now you can analyze with AI.");
+      // window.setTimeout(() => navigate("/transactions"), 700); // Comment out auto-redirect
     } catch (error) {
       setError(error instanceof Error ? error.message : "Upload failed. Please try again.");
       setFiles((previous) => previous.map((item) => ({ ...item, progress: 0, status: "idle" })));
@@ -122,6 +126,18 @@ export default function UploadPage() {
               <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "#7dd3fc", fontWeight: 700 }}>Upload data</div>
               <h1 style={{ marginTop: 10, marginBottom: 6, fontSize: 34, letterSpacing: "-0.05em", lineHeight: 1.08 }}>Document <span style={{ color: "#38bdf8" }}>Upload</span></h1>
               <p style={{ color: "#94a3b8", maxWidth: 720 }}>Drop a statement file here, simulate processing, and open the transaction history page with the uploaded snapshot.</p>
+            </div>
+            <div style={{ display: "grid", gap: 10, minWidth: 220 }}>
+              <div style={{ padding: 14, borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: "rgba(255,255,255,0.03)" }}>
+                <div style={{ fontSize: 12, color: "#7dd3fc", textTransform: "uppercase", letterSpacing: "0.18em", fontWeight: 700 }}>Supported</div>
+                <div style={{ marginTop: 8, color: "#cbd5e1", fontSize: 13 }}>PDF, JPG, PNG, WEBP, CSV</div>
+              </div>
+              <div style={{ padding: 14, borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", background: "rgba(255,255,255,0.03)" }}>
+                <div style={{ fontSize: 12, color: "#7dd3fc", textTransform: "uppercase", letterSpacing: "0.18em", fontWeight: 700 }}>Uploaded files</div>
+                <div style={{ marginTop: 8, color: "#cbd5e1", fontSize: 13 }}>{uploadedCount}/{files.length || 0} processed</div>
+              </div>
+            </div>
+          </div>
           <div
             onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -203,7 +219,26 @@ export default function UploadPage() {
             </div>
 
             {!done && (
-              <button type="button" onClick={runAnalysis} disabled={uploading} style={{ marginTop: 18, width: "100%", padding: "14px 18px", borderRadius: 16, border: "none", background: uploading ? "rgba(56,189,248,0.45)" : "linear-gradient(135deg, #38bdf8, #6366f1)", color: "white", fontWeight: 800, cursor: uploading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <button
+                type="button"
+                onClick={runAnalysis}
+                disabled={uploading || files.length === 0 || files.some((item) => item.status !== "done")}
+                style={{
+                  marginTop: 18,
+                  width: "100%",
+                  padding: "14px 18px",
+                  borderRadius: 16,
+                  border: "none",
+                  background: uploading || files.length === 0 || files.some((item) => item.status !== "done") ? "rgba(56,189,248,0.45)" : "linear-gradient(135deg, #38bdf8, #6366f1)",
+                  color: "white",
+                  fontWeight: 800,
+                  cursor: uploading || files.length === 0 || files.some((item) => item.status !== "done") ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                }}
+              >
                 {uploading ? "Processing..." : <><Brain size={16} /> Analyse with AI <ArrowRight size={14} /></>}
               </button>
             )}
@@ -253,21 +288,8 @@ export default function UploadPage() {
           </section>
         )}
 
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "rgba(7,11,20,0.95)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(99,140,210,0.12)", padding: "10px 0 12px" }}>
-          <div style={{ maxWidth: 480, margin: "0 auto", display: "flex", justifyContent: "space-around" }}>
-            {[
-              { Icon: BarChart3, label: "Dashboard", active: false, route: "/dashboard" },
-              { Icon: Upload, label: "Upload", active: true, route: "/upload" },
-              { Icon: Wallet, label: "Transactions", active: false, route: "/transactions" },
-            ].map(({ Icon, label, active, route }) => (
-              <button key={label} onClick={() => navigate(route)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "4px 10px", background: "none", border: "none", color: active ? "#38bdf8" : "#64748b", cursor: "pointer" }}>
-                {active ? <div style={{ width: 40, height: 40, borderRadius: 13, background: "linear-gradient(135deg,#1d4ed8,#0891b2)", display: "grid", placeItems: "center" }}><Icon size={18} color="#fff" /></div> : <Icon size={20} />}
-                <span style={{ fontSize: 11, fontWeight: active ? 700 : 500 }}>{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </main>
-    </div>
+    {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+  </div>
   );
 }

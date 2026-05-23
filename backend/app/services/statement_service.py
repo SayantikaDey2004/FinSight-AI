@@ -11,7 +11,14 @@ from typing import Any
 from fastapi import UploadFile
 from backend.app.services import parser_service
 
+<<<<<<< HEAD
 # ── Category keyword map (Indian bank statement context) ─────────────────────
+=======
+from app.services.unusual_transaction_service import compute_unusual_flag
+
+
+
+>>>>>>> d3a87483c0601279ab8202c7f23530fdccef9fc9
 CATEGORY_KEYWORDS = {
     # Food & Dining
     "swiggy": "Food & Dining",
@@ -496,6 +503,7 @@ def _compute_summary(transactions: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _mark_unusual(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+<<<<<<< HEAD
     debit_amounts = [t["debit"] for t in transactions if t["type"] == "debit" and t["debit"] > 0]
     if not debit_amounts:
         return transactions
@@ -510,11 +518,63 @@ def _mark_unusual(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for t in transactions:
         if t["type"] == "debit" and t["debit"] >= threshold:
             t["unusual"] = True
+=======
+    """Flag unusual debit transactions.
+
+    Heuristics:
+    - Statistical spike vs median (existing behavior)
+    - Also flag if amount is a large share of total debits
+    - Also look for semantic unusual merchants/notes (best-effort)
+    """
+
+    debit_values = [abs(item["amount"]) for item in transactions if item["type"] == "debit"]
+    median_debit = sorted(debit_values)[len(debit_values) // 2] if debit_values else 0
+    total_debits = float(sum(debit_values)) if debit_values else 0.0
+    threshold = max(10000.0, median_debit * 3 if median_debit else 10000.0)
+
+    # Simple keyword-based risk hints (no extra models)
+    unusual_keywords = [
+        "atm",
+        "cash",
+        "withdraw",
+        "chargeback",
+        "reversal",
+        "fine",
+        "penalty",
+        "fraud",
+        "international",
+        "imps",
+        "neft",
+        "rtgs",
+    ]
+
+    for item in transactions:
+        if item["type"] != "debit":
+            continue
+
+        amt = abs(float(item.get("amount") or 0.0))
+        share_of_debits = (amt / total_debits) if total_debits > 0 else 0.0
+
+        note_blob = f"{item.get('merchant','')} {item.get('note','')} {item.get('narration','')} {item.get('category','')}".lower()
+        keyword_risk = any(k in note_blob for k in unusual_keywords)
+
+        is_spike = amt >= threshold
+        is_large_share = share_of_debits >= 0.15  # >=15% of total debits
+        is_keyword_unusual = keyword_risk
+
+        if is_spike or is_large_share or is_keyword_unusual:
+            item["unusual"] = True
+>>>>>>> d3a87483c0601279ab8202c7f23530fdccef9fc9
 
     return transactions
 
 
+
+from app.services.recurring_payment_service import detect_recurring_payments
+
+
 def _build_recurring(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+<<<<<<< HEAD
     # Group by cleaned merchant name + category
     grouped: dict[str, list[float]] = defaultdict(list)
     for t in transactions:
@@ -537,6 +597,12 @@ def _build_recurring(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]
         })
 
     return sorted(recurring, key=lambda x: (-x["count"], -x["avg_amount"]))
+=======
+    # Improved heuristic recurring detection based on transaction date cadence.
+    # Returns items compatible with frontend recurring cards.
+    return detect_recurring_payments(transactions)
+
+>>>>>>> d3a87483c0601279ab8202c7f23530fdccef9fc9
 
 
 def _build_monthly_trend(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:

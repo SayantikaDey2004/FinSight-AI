@@ -306,6 +306,7 @@ function CheckEmailStep({ email, onBack, onResend }: { email: string; onBack?: (
 
 /* ══ STEP 1 — Email ══ */
 function EmailStep({ onNext, onGoToLogin }: { onNext: (email: string) => void; onGoToLogin?: () => void }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -316,7 +317,11 @@ function EmailStep({ onNext, onGoToLogin }: { onNext: (email: string) => void; o
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr("Enter a valid email address."); return; }
     setLoading(true);
     try {
-      await forgotPasswordRequest({ email });
+      const response = await forgotPasswordRequest({ email });
+      if (response.reset_token) {
+        navigate(`/reset-password?token=${encodeURIComponent(response.reset_token)}`);
+        return;
+      }
       onNext(email);
     } catch (error) {
       setErr(error instanceof ApiError ? error.message : "Unable to send reset email right now.");

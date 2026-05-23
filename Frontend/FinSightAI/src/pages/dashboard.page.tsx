@@ -37,14 +37,7 @@ const EMPTY_SUMMARY: DashboardSummaryResponse = {
   expenseChangePct: 0,
   savingsPct: 0,
   transactionCount: 0,
-  monthlyData: [
-    { month: "Jan", income: 0, expense: 0 },
-    { month: "Feb", income: 0, expense: 0 },
-    { month: "Mar", income: 0, expense: 0 },
-    { month: "Apr", income: 0, expense: 0 },
-    { month: "May", income: 0, expense: 0 },
-    { month: "Jun", income: 0, expense: 0 },
-  ],
+  monthlyData: [],
   categories: [],
   recurring: [],
   unusual: [],
@@ -296,7 +289,7 @@ export default function DashboardPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: 16, marginBottom: 16 }}>
           <Section title="Monthly trend" subtitle="Income and spending across recent months">
             <div style={{ display: "grid", gap: 12 }}>
-              {topSummary.monthlyData.map((item) => {
+              {topSummary.monthlyData.length > 0 ? topSummary.monthlyData.map((item) => {
                 const total = Math.max(item.income + item.expense, 1);
                 const incomeWidth = `${Math.min((item.income / total) * 100, 100)}%`;
                 const expenseWidth = `${Math.min((item.expense / total) * 100, 100)}%`;
@@ -316,7 +309,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 );
-              })}
+              }) : <div style={{ color: "#94a3b8" }}>No monthly data yet.</div>}
             </div>
           </Section>
 

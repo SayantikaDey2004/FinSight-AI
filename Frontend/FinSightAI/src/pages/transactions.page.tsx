@@ -11,9 +11,9 @@ import {
   Search,
   SlidersHorizontal,
   Sparkles,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { getStoredUser } from "../services/authApi";
 import { fetchLatestStatementAnalysis, type UploadedStatementFile } from "../services/statementApi";
 import {
   buildTransactionSummary,
@@ -69,7 +69,6 @@ function Badge({ children, color }: { children: ReactNode; color: string }) {
 
 export default function TransactionsPage() {
   const navigate = useNavigate();
-  const user = getStoredUser();
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedStatementFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,8 +174,6 @@ export default function TransactionsPage() {
   }, [filtered]);
 
   const activeFilters = Number(category !== "All") + Number(typeFilter !== "All") + Number(onlyUnusual);
-  const activeName = user?.name || user?.email || "FinSight user";
-  const avatar = initials(activeName);
 
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at top, rgba(14,165,233,0.18), transparent 30%), linear-gradient(180deg, #040814 0%, #070c18 38%, #050816 100%)", color: "#e2e8f0" }}>
