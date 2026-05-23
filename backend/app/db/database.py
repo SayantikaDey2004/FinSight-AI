@@ -1,28 +1,43 @@
-from motor.motor_asyncio import AsyncIOMotorClient
-from beanie import init_beanie
-from app.config.settings import settings
+from pymongo import MongoClient
+import os
+from dotenv import load_dotenv
+from modules.hashed_password import create_hashed_password
+
+load_dotenv()
+client = MongoClient(os.getenv("mongo_url"))
+db = client[os.getenv("data_base")]
+collection = db["user"]
 
 
-# This client is shared across the whole app (one connection pool)
-client: AsyncIOMotorClient = None
+def insert_data(user: dict):
+    exist = collection.find_one({"email": user["email"]})
+    if exist:
+        return {"data": "exist"}
+    else:
+        res=collection.insert_one(user)
+        print(res.inserted_id)
+        return {"data": "inserted"}
 
+def get_data(email: str):
+    data = collection.find_one({"email": email})
+    if data:
+        return data
+    else:
+        return {"data": "not exists"}
 
-async def connect_db():
-    """Called once on app startup."""
-    global client
-    client = AsyncIOMotorClient(settings.MONGO_URI)
-    db = client[settings.MONGO_DB_NAME]
+def delete_data(email: str):
+    result = collection.delete_one({"email": email})
+    if result.deleted_count > 0:
+        return {"data": "deleted"}
+    else:
+        return {"data": "not exists"}
 
-    # Import models here to avoid circular imports
-    from app.models.user import User
-
-    await init_beanie(database=db, document_models=[User])
-    print(f"✅ Connected to MongoDB: {settings.MONGO_DB_NAME}")
-
-
-async def disconnect_db():
-    """Called once on app shutdown."""
-    global client
-    if client:
-        client.close()
-        print("🔌 MongoDB connection closed")
+def update_password(email: str, new_password: str):
+    result = collection.update_one(
+        {"email": email},
+        {"$set": {"password": new_password}}
+    )
+    if result.matched_count > 0:
+        return {"data": "password updated"}
+    else:
+        return {"data": "not exists"}
