@@ -750,7 +750,7 @@ function DashMock() {
 }
 
 // ── Main App ───────────────────────────────────────────────
-export default function StatementIQ() {
+export default function FinSightAI() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -840,8 +840,7 @@ export default function StatementIQ() {
                 <path d="M3 16.5h12"/>
               </svg>
             </div>
-            <span className="logo-name">Statement<em>IQ</em></span>
-            <span className="logo-beta">BETA</span>
+            <span className="logo-name">FinSight<em></em>AI</span>
           </div>
 
           <div className="nav-links">
@@ -1037,7 +1036,7 @@ export default function StatementIQ() {
               Every tool to master<br/><span className="italic">your money</span>
             </h2>
             <p className="body-lg">
-              Raw transaction data becomes actionable intelligence. Here's what StatementIQ surfaces for you.
+              Raw transaction data becomes actionable intelligence. Here's what FinSightAI surfaces for you.
             </p>
           </div>
 
@@ -1070,7 +1069,7 @@ export default function StatementIQ() {
         <div className="container">
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:80, alignItems:'center' }}>
             <div>
-              <div className="eyebrow">Why StatementIQ</div>
+              <div className="eyebrow">Why FinSightAI</div>
               <h2 className="display-lg" style={{ marginBottom:24 }}>
                 Most people don't know<br/><span className="italic">where it goes</span>
               </h2>
@@ -1078,7 +1077,7 @@ export default function StatementIQ() {
                 Manually reviewing a bank statement is tedious, error-prone, and leaves patterns invisible. Most people have no idea they're spending ₹8,000/month on subscriptions.
               </p>
               <p className="body-md" style={{ marginBottom:36 }}>
-                StatementIQ reads your statement in seconds, builds a complete financial picture, and surfaces insights that would take hours to find manually — if you'd ever find them at all.
+                FinSightAI reads your statement in seconds, builds a complete financial picture, and surfaces insights that would take hours to find manually — if you'd ever find them at all.
               </p>
               <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                 {[
@@ -1100,7 +1099,7 @@ export default function StatementIQ() {
             {/* Before / After card */}
             <div className="float">
               <div className="card-bright" style={{ padding:28 }}>
-                <div style={{ fontFamily:'var(--ff-mono)', fontSize:9, letterSpacing:'0.14em', color:'var(--paper-faint)', textTransform:'uppercase', marginBottom:20 }}>Before vs After StatementIQ</div>
+                <div style={{ fontFamily:'var(--ff-mono)', fontSize:9, letterSpacing:'0.14em', color:'var(--paper-faint)', textTransform:'uppercase', marginBottom:20 }}>Before vs After FinSightAI</div>
 
                 <div className="before-after-row">
                   <div style={{ background:'rgba(255,77,109,0.06)', border:'1px solid rgba(255,77,109,0.2)', borderRadius:12, padding:16 }}>
@@ -1276,7 +1275,7 @@ export default function StatementIQ() {
         </div>
 
         <div style={{ maxWidth:1280, margin:'0 auto', paddingTop:32, borderTop:'1px solid var(--wire)', display:'flex', flexWrap:'wrap', justifyContent:'space-between', alignItems:'center', gap:12 }}>
-          <span className="mono" style={{ fontSize:11, color:'var(--paper-faint)', letterSpacing:'0.04em' }}>© 2025 StatementIQ. All rights reserved.</span>
+          <span className="mono" style={{ fontSize:11, color:'var(--paper-faint)', letterSpacing:'0.04em' }}>© 2025 FinSightAI. All rights reserved.</span>
           <span className="mono" style={{ fontSize:11, color:'var(--paper-faint)', letterSpacing:'0.04em' }}>Built for AI FinTech Innovation</span>
         </div>
       </footer>

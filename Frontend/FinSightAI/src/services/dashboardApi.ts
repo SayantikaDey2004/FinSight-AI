@@ -1,0 +1,67 @@
+import { ApiError } from "./authApi";
+
+export interface DashboardSummaryResponse {
+  healthScore: number;
+  totalIncome: number;
+  totalExpense: number;
+  currentBalance: number;
+  savings: number;
+  incomeChangePct: number;
+  expenseChangePct: number;
+  savingsPct: number;
+  transactionCount: number;
+  monthlyData: Array<{ month: string; income: number; expense: number }>;
+  categories: Array<{ name: string; amount: number; pct: number; color: string }>;
+  recurring: Array<{ name: string; date: string; amount: number; status: "active" | "due" | "missed"; icon: string; color: string }>;
+  unusual: Array<{ name: string; reason: string; amount: number; icon: string }>;
+  aiInsights: Array<{ icon: string; title: string; text: string }>;
+  txList: Array<{
+    date: string;
+    name: string;
+    bank: string;
+    cat: string;
+    catColor: string;
+    icon: string;
+    iconBg: string;
+    amount: number;
+    status: "completed" | "pending" | "flagged";
+  }>;
+}
+
+const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8000/api/v1";
+
+async function requestJson<T>(path: string, token: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const text = await response.text();
+  let data: unknown = null;
+
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown;
+    } catch {
+      data = text;
+    }
+  }
+
+  if (!response.ok) {
+    const detail =
+      typeof data === "object" && data !== null && "detail" in data
+        ? String((data as { detail?: unknown }).detail ?? "Request failed")
+        : typeof data === "string" && data.trim()
+          ? data
+          : "Request failed";
+    throw new ApiError(detail, response.status);
+  }
+
+  return data as T;
+}
+
+export function getDashboardSummary(token: string) {
+  return requestJson<DashboardSummaryResponse>("/dashboard/summary", token);
+}

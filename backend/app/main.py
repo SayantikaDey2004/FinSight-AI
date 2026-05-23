@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from app.db.database import connect_db, disconnect_db
 from app.config.settings import settings
 from app.routes.auth_routes import router as auth_route
+from app.routes.dashboard_routes import router as dashboard_route
 from app.routes.statement_routes import router as statement_router
 from app.routes.auth_routes import router as auth_route
 # ── Rate Limiter setup ───────────────────────────────────
@@ -48,6 +49,7 @@ async def shutdown():
 
 # ── Routes ───────────────────────────────────────────────
 app.include_router(statement_router, prefix="/api/v1")
+app.include_router(dashboard_route, prefix="/api/v1")
 app.include_router(auth_route, prefix="/api/v1")
 
 # ── Health check ─────────────────────────────────────────
