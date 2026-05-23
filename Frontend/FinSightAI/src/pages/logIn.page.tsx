@@ -377,17 +377,7 @@ export default function LoginPage() {
 
                 <motion.p variants={itemVariants} className="text-center text-sm text-slate-500">
                   Don't have an account?{" "}
-<<<<<<< HEAD
-                  <Link
-                    to="/signup"
-=======
-                  <a
-                    href="#"
-                    onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                      e.preventDefault();
-                      navigate("/signup");
-                    }}
->>>>>>> c42d8402c522616f2eed2ebc684b66443990b9b5
+                  <Link to="/signup"
                     className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-150 rounded"
                   >
                     Create Account
