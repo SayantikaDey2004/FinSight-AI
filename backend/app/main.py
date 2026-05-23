@@ -5,6 +5,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.db.database import connect_db, disconnect_db
+from app.config.settings import settings
+from app.routes.auth_routes import router as auth_route
 from app.routes.statement_routes import router as statement_router
 from app.routes.auth_routes import router as auth_route
 # ── Rate Limiter setup ───────────────────────────────────
@@ -15,8 +17,6 @@ app = FastAPI(
     title="FinSight Auth API",
     description="Authentication service for the AI-powered bank statement analyzer.",
     version="1.0.0",
-    docs_url="/docs",       # Swagger UI — visit http://localhost:8000/docs
-    redoc_url="/redoc",
 )
 
 # ── Attach rate limiter ──────────────────────────────────
@@ -47,7 +47,7 @@ async def shutdown():
 
 # ── Routes ───────────────────────────────────────────────
 app.include_router(statement_router, prefix="/api/v1")
-app.include_router(auth_router, prefix="/api/v1")
+app.include_router(auth_route, prefix="/api/v1")
 
 # ── Health check ─────────────────────────────────────────
 @app.get("/health", tags=["Health"])

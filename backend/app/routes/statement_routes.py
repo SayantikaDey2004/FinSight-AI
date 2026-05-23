@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends,UploadFile
 from app.middleware.auth_middleware import get_current_user   # ← ADD
 from app.models.user import User                              # ← ADD
 
