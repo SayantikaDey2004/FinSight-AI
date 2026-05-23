@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends,UploadFile,File,HTTPException
 from app.middleware.auth_middleware import get_current_user   
 from app.models.user import User 
-from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routes.statement_routes import analyze_statement                             
+from app.services.statement_service import analyze_statement                   
 
 router = APIRouter(prefix="/statements", tags=["Statements"])
 
@@ -15,7 +15,8 @@ async def upload_statement(
     # current_user.id = the logged-in user's ID
     # you can use this to store statements per user
     ...
-@app.post("/analyze")
+
+@router.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
     """
     Upload a bank statement (PDF or CSV) and receive full financial analysis.
