@@ -7,6 +7,7 @@ import ResetPasswordPage from "../pages/resetPassword.page";
 import LoginPage from "../pages/logIn.page";
 import DashboardPage from "../pages/dashboard.page";
 import LandingPage from "../pages/landing.page";
+import UserProfile from "../pages/profile.page";
 
 const Router: React.FC = () => {
   return (
@@ -19,6 +20,7 @@ const Router: React.FC = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/landing" element={<LandingPage />} />
+        <Route path="/profile" element={<UserProfile />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
