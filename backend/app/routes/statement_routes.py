@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends,UploadFile,File,HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from app.middleware.auth_middleware import get_current_user   
 from app.models.user import User 
 # from fastapi.middleware.cors import CORSMiddleware
@@ -9,12 +9,24 @@ router = APIRouter(prefix="/statements", tags=["Statements"])
 
 @router.post("/upload")
 async def upload_statement(
-    file: UploadFile,
-    current_user: User = Depends(get_current_user)            
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
 ):
-    # current_user.id = the logged-in user's ID
-    # you can use this to store statements per user
-    ...
+    """
+    Analyze a statement for the logged-in user.
+
+    This returns the same analysis payload as /analyze but requires auth.
+    """
+    file_bytes = await file.read()
+
+    try:
+        result = analyze_statement(file_bytes, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+    return JSONResponse(content=result)
 
 @router.post("/analyze")
 async def analyze(file: UploadFile = File(...)):

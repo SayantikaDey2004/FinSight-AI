@@ -61,6 +61,20 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class UpdateProfileRequest(BaseModel):
+    name: str
+    email: EmailStr
+
+    @field_validator("name")
+    @classmethod
+    def name_must_not_be_empty(cls, v):
+        if not v.strip():
+            raise ValueError("Name cannot be empty")
+        if len(v.strip()) < 2:
+            raise ValueError("Name must be at least 2 characters")
+        return v.strip()
+
+
 # ── Response Schemas (what the server SENDS BACK) ────────────────────────────
 
 class UserResponse(BaseModel):

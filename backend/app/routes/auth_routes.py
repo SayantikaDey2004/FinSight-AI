@@ -5,7 +5,8 @@ from slowapi.util import get_remote_address
 from app.models.schemas import (
     SignupRequest, LoginRequest,
     ForgotPasswordRequest, ResetPasswordRequest,
-    RefreshTokenRequest, TokenResponse, UserResponse, MessageResponse,
+    RefreshTokenRequest, UpdateProfileRequest,
+    TokenResponse, UserResponse, MessageResponse,
 )
 from app.models.user import User
 from app.middleware.auth_middleware import get_current_user
@@ -71,6 +72,17 @@ async def get_me(current_user: User = Depends(get_current_user)):
     Frontend uses this to restore session on page refresh.
     """
     return await auth_controller.get_me(current_user)
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    data: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update the currently logged-in user's profile.
+    """
+    return await auth_controller.update_profile(current_user, data)
 
 
 @router.post("/logout", response_model=MessageResponse)

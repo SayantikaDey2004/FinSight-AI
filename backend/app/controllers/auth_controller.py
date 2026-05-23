@@ -7,7 +7,8 @@ from app.models.user import User
 from app.models.schemas import (
     SignupRequest, LoginRequest,
     ForgotPasswordRequest, ResetPasswordRequest,
-    RefreshTokenRequest, TokenResponse, UserResponse, MessageResponse,
+    RefreshTokenRequest, UpdateProfileRequest,
+    TokenResponse, UserResponse, MessageResponse,
 )
 from app.utils.password import hash_password, verify_password
 from app.utils.jwt import (
@@ -206,4 +207,22 @@ async def reset_password(data: ResetPasswordRequest) -> MessageResponse:
 
 async def get_me(current_user: User) -> UserResponse:
     """Returns the logged-in user's profile. Used by frontend to restore session."""
+    return _user_to_response(current_user)
+
+
+async def update_profile(current_user: User, data: UpdateProfileRequest) -> UserResponse:
+    """Update the logged-in user's basic profile fields."""
+    existing = await User.find_one(User.email == data.email)
+    if existing and existing.id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists.",
+        )
+
+    await current_user.update(Set({
+        User.name: data.name,
+        User.email: data.email,
+        User.updated_at: datetime.utcnow(),
+    }))
+    await current_user.reload()
     return _user_to_response(current_user)
