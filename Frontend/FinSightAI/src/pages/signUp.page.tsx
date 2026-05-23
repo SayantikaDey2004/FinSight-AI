@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ApiError, persistAuthSession, signup as signupRequest } from "../services/authApi";
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -353,9 +353,9 @@ export default function SignUpPage() {
 
         <div style={{ textAlign: "center", marginTop: 18, fontSize: 12, color: "rgba(100,116,139,.8)" }}>
           Already have an account?{" "}
-          <a href="#" onClick={(e) => e.preventDefault()} style={{ color: "#00d4ff", fontWeight: 600, textDecoration: "none", borderBottom: "1px solid rgba(0,212,255,.3)", paddingBottom: 1 }}>
+          <Link to="/login" style={{ color: "#00d4ff", fontWeight: 600, textDecoration: "none", borderBottom: "1px solid rgba(0,212,255,.3)", paddingBottom: 1 }}>
             Sign in →
-          </a>
+          </Link>
         </div>
       </div>
 

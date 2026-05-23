@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Variants } from "framer-motion";
 import {
@@ -377,13 +377,12 @@ export default function LoginPage() {
 
                 <motion.p variants={itemVariants} className="text-center text-sm text-slate-500">
                   Don't have an account?{" "}
-                  <a
-                    href="#"
-                    onClick={(e: React.MouseEvent<HTMLAnchorElement>) => e.preventDefault()}
+                  <Link
+                    to="/signup"
                     className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-150 rounded"
                   >
                     Create Account
-                  </a>
+                  </Link>
                 </motion.p>
 
                 <motion.div variants={itemVariants} className="flex items-center justify-center gap-2 pt-1">
