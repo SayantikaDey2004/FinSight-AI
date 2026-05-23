@@ -754,11 +754,9 @@ export default function FinSightAI() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [authMenuOpen, setAuthMenuOpen] = useState(false);
 
   const goTo = (path: string) => {
     setMenuOpen(false);
-    setAuthMenuOpen(false);
     navigate(path);
   };
 
@@ -813,21 +811,11 @@ export default function FinSightAI() {
           <button
             className="btn-primary"
             style={{ fontSize:15, padding:'12px 28px' }}
-            onClick={() => setAuthMenuOpen((open) => !open)}
+            onClick={goSignup}
           >
             Get started
           </button>
         </div>
-        {authMenuOpen && (
-          <div style={{ display:'flex', flexDirection:'column', gap:10, width:'min(320px, 90vw)' }}>
-            <button className="btn-ghost" style={{ justifyContent:'center' }} onClick={goLogin}>
-              Sign in
-            </button>
-            <button className="btn-primary" style={{ justifyContent:'center' }} onClick={goLogin}>
-              Login
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ══ NAV ══ */}
@@ -853,33 +841,9 @@ export default function FinSightAI() {
             <button className="nav-link" style={{ padding:'7px 14px', border:'1px solid var(--wire-2)', borderRadius:8 }} onClick={goLogin}>
               Sign in
             </button>
-            <button className="nav-cta" onClick={() => setAuthMenuOpen((open) => !open)}>
+            <button className="nav-cta" onClick={goSignup}>
               Get started
             </button>
-            {authMenuOpen && (
-              <div style={{
-                position:'absolute',
-                top:'calc(100% + 12px)',
-                right:0,
-                width:220,
-                padding:12,
-                borderRadius:14,
-                background:'rgba(10,14,22,0.98)',
-                border:'1px solid var(--wire-2)',
-                boxShadow:'0 24px 50px rgba(0,0,0,0.45)',
-                display:'flex',
-                flexDirection:'column',
-                gap:10,
-                zIndex:120,
-              }}>
-                <button className="btn-ghost" style={{ justifyContent:'center', padding:'11px 16px' }} onClick={goLogin}>
-                  Sign in
-                </button>
-                <button className="btn-primary" style={{ justifyContent:'center', padding:'11px 16px' }} onClick={goLogin}>
-                  Login
-                </button>
-              </div>
-            )}
           </div>
 
           <button className={`hamburger ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">

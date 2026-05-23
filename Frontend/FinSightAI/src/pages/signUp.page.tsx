@@ -353,7 +353,7 @@ export default function SignUpPage() {
 
         <div style={{ textAlign: "center", marginTop: 18, fontSize: 12, color: "rgba(100,116,139,.8)" }}>
           Already have an account?{" "}
-          <a href="#" onClick={(e) => e.preventDefault()} style={{ color: "#00d4ff", fontWeight: 600, textDecoration: "none", borderBottom: "1px solid rgba(0,212,255,.3)", paddingBottom: 1 }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/login"); }} style={{ color: "#00d4ff", fontWeight: 600, textDecoration: "none", borderBottom: "1px solid rgba(0,212,255,.3)", paddingBottom: 1 }}>
             Sign in →
           </a>
         </div>

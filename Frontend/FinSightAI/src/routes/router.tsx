@@ -5,7 +5,7 @@ import SignUpPage from "../pages/signUp.page";
 import ForgotPasswordPage from "../pages/forgotPassword.page";
 import ResetPasswordPage from "../pages/resetPassword.page";
 import LoginPage from "../pages/logIn.page";
-import DashboardPage from "../pages/dashboard.page";
+import DashboardPage from "../pages/dashboard.page.tsx";
 import LandingPage from "../pages/landing.page";
 import UserProfile from "../pages/profile.page";
 
