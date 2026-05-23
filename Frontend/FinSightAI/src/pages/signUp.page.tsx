@@ -110,25 +110,25 @@ function ParticleCanvas() {
 function FloatingCard({
   className,
   children,
+  style,
 }: {
   className?: string;
   children: React.ReactNode;
+  style?: React.CSSProperties;
 }) {
+  const baseStyle: React.CSSProperties = {
+    position: "absolute",
+    zIndex: 5,
+    borderRadius: 16,
+    padding: "12px 16px",
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
+    background: "rgba(6,13,26,.7)",
+    border: "1px solid rgba(255,255,255,.1)",
+    boxShadow: "0 20px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08)",
+  };
   return (
-    <div
-      className={className}
-      style={{
-        position: "absolute",
-        zIndex: 5,
-        borderRadius: 16,
-        padding: "12px 16px",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        background: "rgba(6,13,26,.7)",
-        border: "1px solid rgba(255,255,255,.1)",
-        boxShadow: "0 20px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08)",
-      }}
-    >
+    <div className={className} style={{ ...baseStyle, ...(style || {}) }}>
       {children}
     </div>
   );

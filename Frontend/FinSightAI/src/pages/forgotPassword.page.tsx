@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
+import AuthShell from "../components/AuthShell";
 
-function isStrong(v) {
+function isStrong(v: string): boolean {
   return v.length >= 8 && /[A-Z]/.test(v) && /[a-z]/.test(v) && /[0-9]/.test(v);
 }
-function getStrength(v) {
+function getStrength(v: string): number {
   if (!v) return 0;
   if (v.length >= 12 && isStrong(v)) return 4;
   if (isStrong(v)) return 3;
@@ -13,8 +14,7 @@ function getStrength(v) {
 const STRENGTH_LABELS = ["", "Weak", "Fair", "Strong", "Excellent"];
 const STRENGTH_COLORS = ["", "#f87171", "#fb923c", "#facc15", "#34d399"];
 
-/* ── Icons ── */
-function CheckIcon({ size = 11, color = "#fff" }) {
+function CheckIcon({ size = 11, color = "#fff" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 10 10" fill="none"
       stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -48,9 +48,26 @@ function ArrowRight() {
     </svg>
   );
 }
+function ArrowLeft() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M11 18l-6-6 6-6" />
+    </svg>
+  );
+}
 
-/* ── Reusable input ── */
-function Field({ id, label, type, placeholder, value, onChange, icon, hint }) {
+interface FieldProps {
+  id: string;
+  label: React.ReactNode;
+  type?: string;
+  placeholder?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  icon?: React.ReactNode;
+  hint?: React.ReactNode;
+}
+function Field({ id, label, type = "text", placeholder, value, onChange, icon, hint }: FieldProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <label htmlFor={id} style={{
@@ -92,8 +109,13 @@ function Field({ id, label, type, placeholder, value, onChange, icon, hint }) {
   );
 }
 
-/* ── Primary button ── */
-function PrimaryBtn({ children, type = "submit", onClick, disabled }) {
+interface PrimaryBtnProps {
+  children: React.ReactNode;
+  type?: "button" | "submit" | "reset";
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
+}
+function PrimaryBtn({ children, type = "submit", onClick, disabled }: PrimaryBtnProps) {
   return (
     <button type={type} onClick={onClick} disabled={disabled}
       style={{
@@ -117,8 +139,76 @@ function PrimaryBtn({ children, type = "submit", onClick, disabled }) {
   );
 }
 
-/* ── Error box ── */
-function ErrBox({ msg }) {
+function BackBtn({ onClick }: { onClick?: (e?: any) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: "100%", padding: "11px 20px",
+        background: "transparent",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 12, color: "#94a3b8",
+        fontSize: "0.9rem", fontWeight: 500, fontFamily: "inherit",
+        cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        transition: "border-color .2s, color .2s, background .2s",
+        letterSpacing: "0.01em",
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = "rgba(99,102,241,0.4)";
+        e.currentTarget.style.color = "#c7d2fe";
+        e.currentTarget.style.background = "rgba(99,102,241,0.06)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+        e.currentTarget.style.color = "#94a3b8";
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <ArrowLeft />
+      <span>Back to login</span>
+    </button>
+  );
+}
+
+function SignInLink({ onClick }: { onClick?: (e?: any) => void }) {
+  return (
+    <p style={{
+      textAlign: "center",
+      fontSize: "0.8rem",
+      color: "#475569",
+      margin: 0,
+      lineHeight: 1.5,
+    }}>
+      Remember your password?{" "}
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          background: "none", border: "none", padding: 0,
+          color: "#818cf8", fontWeight: 600, fontSize: "inherit",
+          fontFamily: "inherit", cursor: "pointer",
+          textDecoration: "underline", textDecorationColor: "rgba(129,140,248,0.4)",
+          textUnderlineOffset: "3px",
+          transition: "color .2s, text-decoration-color .2s",
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.color = "#a5b4fc";
+          e.currentTarget.style.textDecorationColor = "rgba(165,180,252,0.7)";
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.color = "#818cf8";
+          e.currentTarget.style.textDecorationColor = "rgba(129,140,248,0.4)";
+        }}
+      >
+        Sign in here
+      </button>
+    </p>
+  );
+}
+
+function ErrBox({ msg }: { msg?: string }) {
   if (!msg) return null;
   return (
     <div style={{
@@ -131,13 +221,94 @@ function ErrBox({ msg }) {
   );
 }
 
+/* ══ CHECK EMAIL STEP ══ */
+function CheckEmailStep({ email, onBack, onResend }: { email: string; onBack?: () => void; onResend?: () => void }) {
+  const [resent, setResent] = useState(false);
+
+  function handleResend() {
+    setResent(true);
+    setTimeout(() => setResent(false), 3000);
+    if (onResend) onResend();
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Green circle check icon */}
+      <div style={{
+        width: 56, height: 56, borderRadius: "50%",
+        background: "linear-gradient(135deg, #22c55e, #16a34a)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: "0 8px 28px rgba(34,197,94,0.28)",
+      }}>
+        <svg width="26" height="26" viewBox="0 0 10 10" fill="none"
+          stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="1.5,5 4,7.5 8.5,2.5" />
+        </svg>
+      </div>
+
+      <div>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#f1f5f9", margin: "0 0 10px", lineHeight: 1.3 }}>
+          Check Your Email
+        </h2>
+        <p style={{ fontSize: "0.85rem", color: "#64748b", margin: "0 0 4px", lineHeight: 1.7 }}>
+          We've sent password reset instructions to
+        </p>
+        <p style={{ fontSize: "0.88rem", color: "#a5b4fc", fontWeight: 600, margin: 0, wordBreak: "break-all" }}>
+          {email}
+        </p>
+      </div>
+
+      <div style={{ height: 1, background: "rgba(255,255,255,0.06)" }} />
+
+      {/* Hint box */}
+      <div style={{
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        borderRadius: 10, padding: "11px 14px",
+        fontSize: "0.8rem", color: "#64748b", lineHeight: 1.7,
+      }}>
+        Didn't receive the email? Check your spam folder or{" "}
+        <button type="button" onClick={handleResend} style={{
+          background: "none", border: "none", padding: 0,
+          color: resent ? "#34d399" : "#818cf8",
+          fontWeight: 600, fontSize: "inherit", fontFamily: "inherit",
+          cursor: "pointer", transition: "color .3s",
+        }}>
+          {resent ? "Sent ✓" : "try again"}
+        </button>
+        .
+      </div>
+
+      {/* Back to Login primary button */}
+      <button type="button" onClick={onBack} style={{
+        width: "100%", padding: "13px 20px",
+        background: "linear-gradient(135deg, #6366f1 0%, #0ea5e9 100%)",
+        border: "none", borderRadius: 12, color: "#fff",
+        fontSize: "0.9rem", fontWeight: 600, fontFamily: "inherit",
+        cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        transition: "opacity .2s", letterSpacing: "0.01em",
+      }}
+        onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
+        onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+      >
+        <span>Back to Login</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 /* ══ STEP 1 — Email ══ */
-function EmailStep({ onNext }) {
+function EmailStep({ onNext, onGoToLogin }: { onNext: (email: string) => void; onGoToLogin?: () => void }) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  function submit(e) {
+  function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setErr("");
     if (!email) { setErr("Please enter your email address."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErr("Enter a valid email address."); return; }
@@ -147,7 +318,6 @@ function EmailStep({ onNext }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Icon */}
       <div style={{
         width: 52, height: 52, borderRadius: 14,
         background: "linear-gradient(135deg,rgba(99,102,241,0.2),rgba(14,165,233,0.2))",
@@ -180,13 +350,15 @@ function EmailStep({ onNext }) {
         <PrimaryBtn disabled={loading}>
           {loading ? "Sending link…" : <><span>Send reset link</span><ArrowRight /></>}
         </PrimaryBtn>
+        <BackBtn onClick={onGoToLogin} />
       </form>
+
+      <SignInLink onClick={onGoToLogin} />
     </div>
   );
 }
 
-/* ══ STEP 2 — New Password ══ */
-function PasswordStep({ email, onDone }) {
+  function PasswordStep({ email, onDone, onGoToLogin }: { email: string; onDone?: () => void; onGoToLogin?: () => void }) {
   const [pw, setPw] = useState("");
   const [cf, setCf] = useState("");
   const [loading, setLoading] = useState(false);
@@ -197,13 +369,13 @@ function PasswordStep({ email, onDone }) {
   const display = err || pwErr || cfErr;
   const s = getStrength(pw);
 
-  function submit(e) {
+  function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setErr("");
     if (!pw || !cf) { setErr("Both fields are required."); return; }
     if (!isStrong(pw)) { setErr("Use 8+ chars with uppercase, lowercase & a number."); return; }
     if (pw !== cf) { setErr("Passwords do not match."); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); onDone(); }, 900);
+    setTimeout(() => { setLoading(false); if (onDone) onDone(); }, 900);
   }
 
   return (
@@ -282,13 +454,15 @@ function PasswordStep({ email, onDone }) {
         <PrimaryBtn disabled={loading}>
           {loading ? "Updating…" : <><span>Update password</span><ArrowRight /></>}
         </PrimaryBtn>
+        <BackBtn onClick={onGoToLogin} />
       </form>
+
+      <SignInLink onClick={onGoToLogin} />
     </div>
   );
 }
 
-/* ══ STEP 3 — Success ══ */
-function SuccessStep({ onRestart }) {
+function SuccessStep({ onRestart }: { onRestart?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{
@@ -326,10 +500,16 @@ function SuccessStep({ onRestart }) {
   );
 }
 
-/* ══ ROOT ══ */
-export default function ResetPassword() {
+export default function ResetPassword(): React.ReactElement {
   const [step, setStep] = useState(0);
   const [email, setEmail] = useState("");
+
+  // Replace alert + reset with router.push('/login') in a real app
+  function goToLogin() {
+    setStep(0);
+    setEmail("");
+    alert("Redirecting to login page…");
+  }
 
   return (
     <>
@@ -346,8 +526,6 @@ export default function ResetPassword() {
           padding: 1.5rem 1rem;
         }
         input::placeholder { color: #2d3748 !important; }
-
-        /* Responsive card */
         .rp-card {
           width: 100%;
           max-width: 440px;
@@ -357,8 +535,6 @@ export default function ResetPassword() {
           padding: 2.5rem;
           box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.55);
         }
-
-        /* Mobile */
         @media (max-width: 480px) {
           body { padding: 0; align-items: flex-end; background: #070c18; }
           .rp-card {
@@ -368,18 +544,19 @@ export default function ResetPassword() {
             border-bottom: none;
           }
         }
-
-        /* Tablet+ */
         @media (min-width: 481px) {
           body { align-items: center; }
         }
       `}</style>
 
-      <div className="rp-card">
-        {step === 0 && <EmailStep onNext={em => { setEmail(em); setStep(1); }} />}
-        {step === 1 && <PasswordStep email={email} onDone={() => setStep(2)} />}
-        {step === 2 && <SuccessStep onRestart={() => { setStep(0); setEmail(""); }} />}
-      </div>
+      <AuthShell>
+        <div className="rp-card">
+          {step === 0 && <EmailStep onNext={em => { setEmail(em); setStep(1); }} onGoToLogin={goToLogin} />}
+          {step === 1 && <CheckEmailStep email={email} onBack={goToLogin} onResend={() => {}} />}
+          {step === 2 && <PasswordStep email={email} onDone={() => setStep(3)} onGoToLogin={goToLogin} />}
+          {step === 3 && <SuccessStep onRestart={goToLogin} />}
+        </div>
+      </AuthShell>
     </>
   );
 }
