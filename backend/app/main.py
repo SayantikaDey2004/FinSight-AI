@@ -31,10 +31,11 @@ from app.services.statement_service import analyze_statement_files, generate_das
 from app.services.unusual_transaction_service import compute_unusual_flag
 from app.routes.statement_routes import router as statement_router
 from modules.hashed_password import check_password, create_hashed_password
-
+from modules.send_email import send_email
 
 
 app = FastAPI(title="FinSightAI API")
+
 
 
 @app.get("/api/v1/admin/gemini_key")
@@ -188,12 +189,42 @@ async def forgot_password(data: ForgotPasswordRequest):
         },
     )
 
+    # Send email with Bravo SMTP containing the reset link.
+    # Frontend remains unchanged; response body is kept compatible.
+    try:
+        html_body = f"""
+        <html>
+          <body style=\"font-family: Arial, sans-serif;\">
+            <p>Hello,</p>
+            <p>You requested a password reset for your FinSightAI account.</p>
+            <p>
+              <a href=\"{reset_url}\" style=\"display:inline-block;padding:10px 14px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;\">
+                Reset your password
+              </a>
+            </p>
+            <p>If you didn’t request this, you can ignore this email.</p>
+            <p>Thanks,<br/>FinSightAI Team</p>
+          </body>
+        </html>
+        """.strip()
+
+        send_email(
+            to_email=data.email,
+            subject="FinSightAI Password Reset",
+            html_body=html_body,
+        )
+    except Exception:
+        # Do not block the existing flow if email fails.
+        # (Frontend may rely on token/url returned below.)
+        pass
+
     return {
         "message": "Password reset instructions are ready.",
         "success": True,
         "reset_token": reset_token,
         "reset_url": reset_url,
     }
+
 
 
 @app.post("/api/v1/auth/reset-password")
