@@ -1,6 +1,34 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from app.middleware.auth_middleware import get_current_user   
-from app.models.user import User 
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.db.database import get_data
+import jwt, os
+
+
+AUTH_SCHEME = HTTPBearer(auto_error=False)
+
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(AUTH_SCHEME)) -> dict:
+    if not credentials or not credentials.credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        payload = jwt.decode(credentials.credentials, os.getenv("Secret_key", "finsight-dev-secret"), algorithms=[os.getenv("algorithm", "HS256")])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    email = str(payload.get("email"))
+    user = get_data(email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "id": str(user.get("_id", "")),
+        "name": user.get("name", ""),
+        "email": user.get("email", ""),
+        "is_active": bool(user.get("is_active", True)),
+        "is_verified": bool(user.get("is_verified", False)),
+        "created_at": user.get("created_at", ""),
+    }
 # from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.services.statement_service import analyze_statement                   
@@ -10,7 +38,7 @@ router = APIRouter(prefix="/statements", tags=["Statements"])
 @router.post("/upload")
 async def upload_statement(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Analyze a statement for the logged-in user.

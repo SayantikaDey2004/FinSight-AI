@@ -106,16 +106,6 @@ def _require_bearer(credentials: HTTPAuthorizationCredentials | None) -> str:
 def home():
     return {"message": "success"}
 
-<<<<<<< HEAD
-
-@app.post("/token")
-def new_token(data: dict):
-    try:
-        token = create_token(data)
-    except Exception as e:
-        return {"error": str(e)}
-    else:
-        return {"access_token": token, "token_type": "bearer"}
 @app.get("/api/v1/dashboard/summary")
 async def get_dashboard_summary(authorization: str | None = Header(default=None)):
     user_key = _statement_user_key(authorization)
@@ -183,46 +173,6 @@ async def get_dashboard_summary(authorization: str | None = Header(default=None)
         "txList": txList,
     }
 @app.post("/api/v1/auth/signup")
-async def new_user(data: SignupRequest):
-    hash_pw = create_hashed_password(data.password)
-    data.password = hash_pw.decode("UTF-8")
-    try:
-        d = insert_data(data.model_dump())
-    except Exception as e:
-        return {"Error": f"Signup failed: {str(e)}"}
-    else:
-        token = create_token({"email": data.email})
-        return {"new_user": d, "token": token}
-@app.post("/api/v1/auth/login")
-async def user_login(data: LoginRequest):
-    k = get_data(data.email)
-    if not k or not check_password(data.password, k.get("password")):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    token = create_token({"email": k["email"], "name": k["name"]})
-    return {
-        "access_token": token,
-        "refresh_token": token,   # no refresh logic yet, reuse same token
-        "token_type": "bearer",
-        "user": {
-            "id": str(k.get("_id", "")),
-            "name": k["name"],
-            "email": k["email"],
-            "is_active": True,
-            "is_verified": True,
-            "created_at": ""
-        }
-    }
-@app.post("/update_password")
-def update_pass(data: LoginRequest,token=Depends(outh)):
-    try:
-        d = update_password(data.email, create_hashed_password(data.password))
-    except Exception as e:
-        return {"response": str(e)}
-    else:
-        return {"password": d}
-=======
-
-@app.post("/api/v1/auth/signup")
 async def signup(data: SignupRequest):
     if _get_user_by_email(data.email):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An account already exists with this email.")
@@ -239,23 +189,14 @@ async def signup(data: SignupRequest):
 
     inserted = collection.insert_one(user_document)
     user_document["_id"] = inserted.inserted_id or ObjectId()
->>>>>>> d3a87483c0601279ab8202c7f23530fdccef9fc9
 
     return _auth_payload(user_document)
 
-<<<<<<< HEAD
-@app.post("/api/v1/auth/logout")
-def user_logout(request: Request, token=Depends(outh)):
-    token=""
-    # In stateless JWT, logout is client-side (just discard token).
-    return {"logout": "successful"}
-=======
 @app.post("/api/v1/auth/login")
 async def login(data: LoginRequest):
     user = _get_user_by_email(data.email)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
->>>>>>> d3a87483c0601279ab8202c7f23530fdccef9fc9
 
     if not check_password(data.password, user.get("password", "")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")

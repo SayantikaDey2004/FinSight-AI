@@ -9,16 +9,13 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import UploadFile
-from backend.app.services import parser_service
+from app.services import parser_service
 
-<<<<<<< HEAD
 # ── Category keyword map (Indian bank statement context) ─────────────────────
-=======
 from app.services.unusual_transaction_service import compute_unusual_flag
 
 
 
->>>>>>> d3a87483c0601279ab8202c7f23530fdccef9fc9
 CATEGORY_KEYWORDS = {
     # Food & Dining
     "swiggy": "Food & Dining",
@@ -503,7 +500,6 @@ def _compute_summary(transactions: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _mark_unusual(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-<<<<<<< HEAD
     debit_amounts = [t["debit"] for t in transactions if t["type"] == "debit" and t["debit"] > 0]
     if not debit_amounts:
         return transactions
@@ -518,7 +514,6 @@ def _mark_unusual(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for t in transactions:
         if t["type"] == "debit" and t["debit"] >= threshold:
             t["unusual"] = True
-=======
     """Flag unusual debit transactions.
 
     Heuristics:
@@ -564,7 +559,6 @@ def _mark_unusual(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
         if is_spike or is_large_share or is_keyword_unusual:
             item["unusual"] = True
->>>>>>> d3a87483c0601279ab8202c7f23530fdccef9fc9
 
     return transactions
 
@@ -574,7 +568,6 @@ from app.services.recurring_payment_service import detect_recurring_payments
 
 
 def _build_recurring(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-<<<<<<< HEAD
     # Group by cleaned merchant name + category
     grouped: dict[str, list[float]] = defaultdict(list)
     for t in transactions:
@@ -597,12 +590,10 @@ def _build_recurring(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]
         })
 
     return sorted(recurring, key=lambda x: (-x["count"], -x["avg_amount"]))
-=======
     # Improved heuristic recurring detection based on transaction date cadence.
     # Returns items compatible with frontend recurring cards.
     return detect_recurring_payments(transactions)
 
->>>>>>> d3a87483c0601279ab8202c7f23530fdccef9fc9
 
 
 def _build_monthly_trend(transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -847,18 +838,13 @@ async def analyze_statement(
 # import urllib.request
 # from collections import defaultdict
 # from datetime import datetime
-# from typing import Any
+from typing import Any
 
-# from fastapi import UploadFile
+from fastapi import UploadFile
+from app.services import parser_service
+from app.services.unusual_transaction_service import compute_unusual_flag
 
-
-# CATEGORY_KEYWORDS = {
-#     "food": "Food",
-#     "restaurant": "Food",
-#     "swiggy": "Food",
-#     "zomato": "Food",
-#     "coffee": "Coffee",
-#     "cafe": "Coffee",
+# ── Category keyword map (Indian bank statement context) ─────────────────────
 #     "transport": "Transport",
 #     "cab": "Transport",
 #     "uber": "Transport",
