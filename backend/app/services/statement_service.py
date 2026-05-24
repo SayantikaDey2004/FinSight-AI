@@ -1075,10 +1075,11 @@ def _analyze_file_bytes(file_bytes: bytes, filename: str, mime_type: str) -> lis
                 return transactions
         except Exception as e:
             print(f"[statement_service] Gemini text-parse failed for {filename}: {e}")
-            fallback_transactions = _parse_ocr_text_transactions(ocr_text)
-            print(f"[statement_service] OCR heuristic fallback extracted {len(fallback_transactions)} transaction(s) for {filename}")
-            if fallback_transactions:
-                return fallback_transactions
+
+        fallback_transactions = _parse_ocr_text_transactions(ocr_text)
+        print(f"[statement_service] OCR heuristic fallback extracted {len(fallback_transactions)} transaction(s) for {filename}")
+        if fallback_transactions:
+            return fallback_transactions
 
     # Fallback: ask Gemini to OCR+parse the file (inlineData) as before
     print(f"[statement_service] Falling back to remote Gemini OCR for {filename}")
@@ -1094,6 +1095,13 @@ def _analyze_file_bytes(file_bytes: bytes, filename: str, mime_type: str) -> lis
     for item in parsed.get("transactions", []):
         if isinstance(item, dict):
             transactions.append(item)
+
+    if not transactions and ocr_text:
+        fallback_transactions = _parse_ocr_text_transactions(ocr_text)
+        print(f"[statement_service] Remote OCR heuristic fallback extracted {len(fallback_transactions)} transaction(s) for {filename}")
+        if fallback_transactions:
+            return fallback_transactions
+
     return transactions
 
 

@@ -233,22 +233,17 @@ export async function resetPassword(payload: { token: string; new_password: stri
 }
 
 export function persistAuthSession(auth: TokenResponse, rememberMe = true) {
-  if (rememberMe) {
-    window.localStorage.setItem(ACCESS_TOKEN_KEY, auth.access_token);
-    window.localStorage.setItem(REFRESH_TOKEN_KEY, auth.refresh_token);
-    window.localStorage.setItem(USER_KEY, JSON.stringify(auth.user));
-    window.sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-    window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    window.sessionStorage.removeItem(USER_KEY);
-    return;
-  }
+  window.localStorage.setItem(ACCESS_TOKEN_KEY, auth.access_token);
+  window.localStorage.setItem(REFRESH_TOKEN_KEY, auth.refresh_token);
+  window.localStorage.setItem(USER_KEY, JSON.stringify(auth.user));
 
   window.sessionStorage.setItem(ACCESS_TOKEN_KEY, auth.access_token);
   window.sessionStorage.setItem(REFRESH_TOKEN_KEY, auth.refresh_token);
   window.sessionStorage.setItem(USER_KEY, JSON.stringify(auth.user));
-  window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-  window.localStorage.removeItem(USER_KEY);
+
+  if (!rememberMe) {
+    return;
+  }
 }
 
 export async function fetchCurrentUser() {

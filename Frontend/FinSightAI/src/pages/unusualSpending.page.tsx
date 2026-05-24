@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -6,8 +6,6 @@ import {
   clearAuthSession,
   fetchCurrentUser,
   getStoredAccessToken,
-  getStoredUser,
-  type AuthUser,
 } from "../services/authApi";
 import { getDashboardSummary, type DashboardSummaryResponse } from "../services/dashboardApi";
 import FinSightSidebar from "../components/ui/FinSightSidebar";
@@ -39,12 +37,6 @@ const EMPTY_SUMMARY: DashboardSummaryResponse = {
 
 function money(value: number) {
   return `₹${Math.abs(value).toLocaleString("en-IN")}`;
-}
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "FS";
-  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "FS";
 }
 
 function Section({ title, subtitle, action, children }: SectionProps) {
@@ -94,10 +86,30 @@ function Badge({ children, color }: { children: ReactNode; color: string }) {
 
 export default function UnusualSpendingPage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<AuthUser | null>(getStoredUser());
   const [summary, setSummary] = useState<DashboardSummaryResponse>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshSeed, setRefreshSeed] = useState(0);
+
+  useEffect(() => {
+    const handleStatementUpdated = () => {
+      setRefreshSeed((value) => value + 1);
+    };
+
+    const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("finsight:statement-updated") : null;
+    const handleBroadcastMessage = () => {
+      setRefreshSeed((value) => value + 1);
+    };
+
+    window.addEventListener("finsight:statement-updated", handleStatementUpdated);
+    channel?.addEventListener("message", handleBroadcastMessage);
+
+    return () => {
+      window.removeEventListener("finsight:statement-updated", handleStatementUpdated);
+      channel?.removeEventListener("message", handleBroadcastMessage);
+      channel?.close();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -110,9 +122,8 @@ export default function UnusualSpendingPage() {
       }
 
       try {
-        const [profile, dashboard] = await Promise.all([fetchCurrentUser(), getDashboardSummary(token)]);
+        const [, dashboard] = await Promise.all([fetchCurrentUser(), getDashboardSummary(token)]);
         if (!active) return;
-        setUser(profile);
         setSummary(dashboard);
       } catch (requestError) {
         if (!active) return;
@@ -136,10 +147,8 @@ export default function UnusualSpendingPage() {
     return () => {
       active = false;
     };
-  }, [navigate]);
+  }, [navigate, refreshSeed]);
 
-  const displayName = user?.name || user?.email || "FinSight user";
-  const avatar = useMemo(() => initials(displayName), [displayName]);
   const topSpendingCategory = summary.categories[0];
 
   return (

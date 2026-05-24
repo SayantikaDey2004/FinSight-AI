@@ -14,8 +14,8 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { clearAuthSession, getStoredAccessTokenCandidates } from "../services/authApi";
-import { fetchLatestStatementAnalysis, type UploadedStatementFile } from "../services/statementApi";
+import { clearAuthSession, getStoredAccessToken } from "../services/authApi";
+import { type UploadedStatementFile } from "../services/statementApi";
 import {
   buildTransactionSummary,
   type TransactionRecord,
@@ -55,11 +55,6 @@ function formatDay(value: string) {
   return new Date(value).toLocaleDateString("en-IN", { weekday: "short" });
 }
 
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "FS";
-}
-
 function Badge({ children, color }: { children: ReactNode; color: string }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, background: `${color}18`, border: `1px solid ${color}2a`, color, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
@@ -84,8 +79,8 @@ export default function TransactionsPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    const tokens = getStoredAccessTokenCandidates();
-    if (tokens.length === 0) {
+    const token = getStoredAccessToken();
+    if (!token) {
       clearAuthSession();
       navigate("/login", { replace: true });
       return;
@@ -99,12 +94,19 @@ export default function TransactionsPage() {
     const handleBroadcastMessage = () => {
       setRefreshSeed((value) => value + 1);
     };
+    const handleStorageMessage = (event: StorageEvent) => {
+      if (event.key === "finsight_access_token" || event.key === "finsight_user") {
+        setRefreshSeed((value) => value + 1);
+      }
+    };
 
     window.addEventListener("finsight:statement-updated", handleStatementUpdated);
+    window.addEventListener("storage", handleStorageMessage);
     channel?.addEventListener("message", handleBroadcastMessage);
 
     return () => {
       window.removeEventListener("finsight:statement-updated", handleStatementUpdated);
+      window.removeEventListener("storage", handleStorageMessage);
       channel?.removeEventListener("message", handleBroadcastMessage);
       channel?.close();
     };
@@ -115,10 +117,47 @@ export default function TransactionsPage() {
     let pollId: number | undefined;
     let pollAttempts = 0;
 
+    async function requestLatest() {
+      const token = getStoredAccessToken();
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await fetch("http://localhost:8000/api/v1/statements/latest", {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const text = await response.text();
+      let data: unknown = null;
+
+      if (text) {
+        try {
+          data = JSON.parse(text) as unknown;
+        } catch {
+          data = text;
+        }
+      }
+
+      if (!response.ok) {
+        const detail =
+          typeof data === "object" && data !== null && "detail" in data
+            ? String((data as { detail?: unknown }).detail ?? "Request failed")
+            : typeof data === "string" && data.trim()
+              ? data
+              : "Request failed";
+        throw new Error(detail);
+      }
+
+      return data as { files?: UploadedStatementFile[]; transactions?: TransactionRecord[] };
+    }
+
     async function loadTransactionsFromBackend() {
       setRefreshing(true);
       try {
-        const latest = await fetchLatestStatementAnalysis();
+        const latest = await requestLatest();
         if (!mounted) {
           return;
         }
@@ -157,7 +196,7 @@ export default function TransactionsPage() {
       }
 
       try {
-        const latest = await fetchLatestStatementAnalysis();
+        const latest = await requestLatest();
         if (!mounted) return;
         if (latest?.transactions?.length) {
           setTransactions(latest.transactions);

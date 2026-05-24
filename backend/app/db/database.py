@@ -13,6 +13,17 @@ statement_collection = db["statement_analyses"]
 statement_collection.create_index("user_id", unique=True, sparse=True)
 
 
+def _transaction_count(analysis: dict | None) -> int:
+    if not isinstance(analysis, dict):
+        return 0
+
+    transactions = analysis.get("transactions", []) or []
+    try:
+        return len(transactions)
+    except Exception:
+        return 0
+
+
 def insert_data(user: dict):
     exist = collection.find_one({"email": user["email"]})
     if exist:
@@ -48,18 +59,20 @@ def update_password(email: str, new_password: str):
 
 
 def save_statement_analysis(user_id: str, analysis: dict):
+    existing = statement_collection.find_one({"user_id": user_id})
+    incoming_count = _transaction_count(analysis)
+
+    if existing and incoming_count == 0 and _transaction_count(existing) > 0:
+        print(f"[db] save_statement_analysis: preserving existing analysis for user_id={user_id} because incoming analysis is empty")
+        return existing
+
     payload = {
         **analysis,
         "user_id": user_id,
         "updated_at": datetime.utcnow(),
     }
 
-    try:
-        tx_count = len(analysis.get("transactions", []) or [])
-    except Exception:
-        tx_count = 0
-
-    print(f"[db] save_statement_analysis: user_id={user_id} transactions={tx_count}")
+    print(f"[db] save_statement_analysis: user_id={user_id} transactions={incoming_count}")
 
     statement_collection.update_one(
         {"user_id": user_id},

@@ -12,7 +12,20 @@ export interface DashboardSummaryResponse {
   transactionCount: number;
   monthlyData: Array<{ month: string; income: number; expense: number }>;
   categories: Array<{ name: string; amount: number; pct: number; color: string }>;
-  recurring: Array<{ name: string; date: string; amount: number; status: "active" | "due" | "missed"; icon: string; color: string }>;
+  recurring: Array<{
+    name: string;
+    date: string;
+    amount: number;
+    status: "active" | "due" | "missed";
+    icon: string;
+    color: string;
+    category?: string;
+    count?: number;
+    avg_amount?: number;
+    cadence_months?: number;
+    next_due_date?: string | null;
+    unusual?: boolean;
+  }>;
   unusual: Array<{ name: string; reason: string; amount: number; icon: string }>;
   aiInsights: Array<{ icon: string; title: string; text: string }>;
   txList: Array<{
@@ -32,6 +45,7 @@ const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.repla
 
 async function requestJson<T>(path: string, token: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
