@@ -195,84 +195,13 @@ git clone https://github.com/your-team/finsightai.git
 cd finsightai
 ```
 
-### 2. Backend setup
+### 2. Backend 
 
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-Create a `.env` file in `backend/`:
-
-```env
-# MongoDB
-mongo_url=mongodb+srv://<user>:<password>@cluster.mongodb.net/
-data_base=fintech_auth
-
-# JWT
-Secret_key=your-super-secret-key-min-32-chars
-algorithm=HS256
-
-# Gemini AI
-GEMINI_API_KEY=AIzaSy...your_key_here
-GEMINI_MODEL=gemini-2.5-flash
-```
-
-Start the backend:
-
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-API docs available at **http://localhost:8000/docs**
+API docs available at **https://codeflow2026-thinkq-finsightai.onrender.com**
 
 ### 3. Frontend setup
 
-```bash
-cd Frontend/FinSightAI
-npm install
-```
-
-Create a `.env` file in `Frontend/FinSightAI/`:
-
-```env
-VITE_API_URL=http://localhost:8000/api/v1
-```
-
-Start the frontend:
-
-```bash
-npm run dev
-```
-
-App available at **http://localhost:5173**
-
----
-
-## 🔌 API Reference
-
-### Auth
-
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `POST` | `/api/v1/auth/signup` | Register a new user | ❌ |
-| `POST` | `/api/v1/auth/login` | Login, returns JWT | ❌ |
-| `GET` | `/api/v1/auth/me` | Get current user profile | ✅ |
-| `POST` | `/api/v1/auth/logout` | Logout (client-side token discard) | ✅ |
-
-### Statements
-
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `POST` | `/api/v1/statements/upload` | Upload PDF/image, returns full analysis | Optional |
-| `GET` | `/api/v1/statements/latest` | Get most recent analysis for user | Optional |
-
-### Dashboard
-
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/api/v1/dashboard/summary` | Full dashboard payload | Optional |
-
+Frontend available at **https://finsightai-delta.vercel.app**
 ### Statement Upload Response Shape
 
 ```json
