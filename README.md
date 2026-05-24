@@ -378,20 +378,6 @@ Stored in MongoDB → Served to Dashboard
 
 ---
 
-## 🧩 Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `mongo_url` | ✅ | MongoDB Atlas connection string |
-| `data_base` | ✅ | Database name |
-| `Secret_key` | ✅ | JWT signing secret (min 32 chars) |
-| `algorithm` | ✅ | JWT algorithm (`HS256`) |
-| `GEMINI_API_KEY` | ✅ | Google AI Studio API key |
-| `GEMINI_MODEL` | ❌ | Gemini model name (default: `gemini-2.5-flash`) |
-| `VITE_API_URL` | ❌ | Frontend API base URL (default: `http://localhost:8000/api/v1`) |
-
----
-
 ## 👥 Team ThinkQ — CODEFLOW 2026
 
 Built in 24 hours at **CODEFLOW 2026** — an intercollegiate hackathon.
