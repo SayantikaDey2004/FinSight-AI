@@ -1,4 +1,4 @@
-import { ApiError, getStoredAccessToken } from "./authApi";
+import { ApiError, getStoredAccessToken, getStoredAccessTokenCandidates } from "./authApi";
 import type { TransactionRecord, TransactionSummary } from "../lib/transactionStore";
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8000/api/v1";
@@ -50,38 +50,51 @@ export interface BackendStatementAnalysisResponse {
 }
 
 async function requestBackend<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getStoredAccessToken();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers || {}),
-    },
-  });
+  const tokens = getStoredAccessTokenCandidates();
+  const fallbackToken = getStoredAccessToken();
+  const tokenList = fallbackToken && !tokens.includes(fallbackToken) ? [fallbackToken, ...tokens] : tokens;
 
-  const text = await response.text();
-  let data: unknown = null;
+  let lastError: ApiError | null = null;
 
-  if (text) {
-    try {
-      data = JSON.parse(text) as unknown;
-    } catch {
-      data = text;
+  for (const token of tokenList) {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers || {}),
+      },
+    });
+
+    const text = await response.text();
+    let data: unknown = null;
+
+    if (text) {
+      try {
+        data = JSON.parse(text) as unknown;
+      } catch {
+        data = text;
+      }
     }
-  }
 
-  if (!response.ok) {
+    if (response.ok) {
+      return data as T;
+    }
+
     const detail =
       typeof data === "object" && data !== null && "detail" in data
         ? String((data as { detail?: unknown }).detail ?? "Request failed")
         : typeof data === "string" && data.trim()
           ? data
           : "Request failed";
-    throw new ApiError(detail, response.status);
+    lastError = new ApiError(detail, response.status);
+
+    if (response.status !== 401 && response.status !== 403) {
+      throw lastError;
+    }
   }
 
-  return data as T;
+  throw lastError ?? new ApiError("Request failed", 500);
 }
 
 export async function uploadStatementFiles(files: File[]): Promise<BackendStatementAnalysisResponse> {
@@ -90,31 +103,53 @@ export async function uploadStatementFiles(files: File[]): Promise<BackendStatem
     formData.append("files", file);
   }
 
-  const token = getStoredAccessToken();
-  const res = await fetch(`${API_BASE_URL}/statements/upload`, {
-    method: "POST",
-    body: formData,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const tokens = getStoredAccessTokenCandidates();
+  const fallbackToken = getStoredAccessToken();
+  const tokenList = fallbackToken && !tokens.includes(fallbackToken) ? [fallbackToken, ...tokens] : tokens;
 
-  const text = await res.text();
-  let data: unknown = null;
-  if (text) {
-    try {
-      data = JSON.parse(text) as unknown;
-    } catch {
-      data = text;
+  let lastError: ApiError | null = null;
+
+  for (const token of tokenList) {
+    const res = await fetch(`${API_BASE_URL}/statements/upload`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    const text = await res.text();
+    let data: unknown = null;
+    if (text) {
+      try {
+        data = JSON.parse(text) as unknown;
+      } catch {
+        data = text;
+      }
+    }
+
+    if (res.ok) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("finsight:statement-updated", { detail: data }));
+        if (typeof BroadcastChannel !== "undefined") {
+          const channel = new BroadcastChannel("finsight:statement-updated");
+          channel.postMessage({ type: "statement-updated" });
+          channel.close();
+        }
+      }
+
+      return data as BackendStatementAnalysisResponse;
+    }
+
+    const detail = typeof data === "object" && data !== null && "detail" in data ? String((data as { detail?: unknown }).detail ?? "Request failed") : typeof data === "string" && data.trim() ? data : "Request failed";
+    lastError = new ApiError(detail, res.status);
+
+    if (res.status !== 401 && res.status !== 403) {
+      throw lastError;
     }
   }
 
-  if (!res.ok) {
-    const detail = typeof data === "object" && data !== null && "detail" in data ? String((data as { detail?: unknown }).detail ?? "Request failed") : typeof data === "string" && data.trim() ? data : "Request failed";
-    throw new ApiError(detail, res.status);
-  }
-
-  return data as BackendStatementAnalysisResponse;
+  throw lastError ?? new ApiError("Request failed", 500);
 }
 
 export async function uploadStatement(file: File): Promise<BackendStatementAnalysisResponse> {

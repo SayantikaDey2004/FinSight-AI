@@ -522,6 +522,71 @@ def _normalize_transaction(raw: dict[str, Any], txn_id: int) -> dict[str, Any]:
     }
 
 
+def _parse_ocr_text_transactions(ocr_text: str) -> list[dict[str, Any]]:
+    if not ocr_text.strip():
+        return []
+
+    line_pattern = re.compile(
+        r"(?P<date>(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4})|(?:\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4})|(?:\d{4}-\d{2}-\d{2}))"
+    )
+    amount_pattern = re.compile(r"(?<!\d)(-?\d[\d,]*\.?\d{0,2})(?!\d)")
+    skip_tokens = (
+        "balance forward",
+        "opening balance",
+        "closing balance",
+        "transaction date",
+        "date particulars",
+        "statement summary",
+    )
+
+    transactions: list[dict[str, Any]] = []
+    for raw_line in ocr_text.splitlines():
+        line = re.sub(r"\s+", " ", raw_line).strip()
+        if not line or len(line) < 6:
+            continue
+
+        lower = line.lower()
+        if any(token in lower for token in skip_tokens):
+            continue
+
+        date_match = line_pattern.search(line)
+        if not date_match:
+            continue
+
+        amount_matches = amount_pattern.findall(line)
+        if not amount_matches:
+            continue
+
+        amount_text = amount_matches[-1]
+        amount_value = _clean_amount(amount_text)
+        if amount_value <= 0:
+            continue
+
+        description = line[:date_match.start()].strip(" |-\t")
+        tail = line[date_match.end():].strip(" |-\t")
+        merchant = " ".join(part for part in [description, tail] if part).strip() or line
+
+        credit_tokens = (" cr", "credit", "deposit", "salary", "interest", "refund", "cashback", "reversal")
+        debit_tokens = (" dr", "debit", "withdraw", "upi", "imps", "neft", "rtgs", "paid", "charge", "fee", "purchase")
+        is_credit = any(token in lower for token in credit_tokens)
+        is_debit = any(token in lower for token in debit_tokens)
+        raw_type = "credit" if is_credit and not is_debit else "debit"
+
+        transactions.append(
+            {
+                "date": date_match.group("date"),
+                "merchant": merchant,
+                "debit": 0.0 if raw_type == "credit" else amount_value,
+                "credit": amount_value if raw_type == "credit" else 0.0,
+                "balance": 0.0,
+                "amount": amount_value if raw_type == "credit" else -amount_value,
+                "type": raw_type,
+            }
+        )
+
+    return transactions
+
+
 # ── Analytics ─────────────────────────────────────────────────────────────────
 
 def _compute_summary(transactions: list[dict[str, Any]]) -> dict[str, Any]:
@@ -938,10 +1003,19 @@ def _analyze_file_bytes(file_bytes: bytes, filename: str, mime_type: str) -> lis
                 return transactions
         except Exception as e:
             print(f"[statement_service] Gemini text-parse failed: {e}")
+            fallback_transactions = _parse_ocr_text_transactions(ocr_text)
+            if fallback_transactions:
+                print(f"[statement_service] OCR heuristic fallback extracted {len(fallback_transactions)} transaction(s)")
+                return fallback_transactions
 
     # Fallback: ask Gemini to OCR+parse the file (inlineData) as before
     print(f"[statement_service] Falling back to remote Gemini OCR for {filename}")
-    parsed = _invoke_gemini(GEMINI_PROMPT, file_bytes, mime_type)
+    try:
+        parsed = _invoke_gemini(GEMINI_PROMPT, file_bytes, mime_type)
+    except Exception as error:
+        print(f"[statement_service] Gemini OCR unavailable for {filename}: {error}")
+        return _parse_ocr_text_transactions(ocr_text) if ocr_text else []
+
     transactions = []
     for item in parsed.get("transactions", []):
         if isinstance(item, dict):

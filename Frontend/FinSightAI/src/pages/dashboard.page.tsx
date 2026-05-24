@@ -1,14 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
   ApiError,
   clearAuthSession,
-  fetchCurrentUser,
   getStoredAccessToken,
-  getStoredUser,
-  logout as logoutRequest,
-  type AuthUser,
 } from "../services/authApi";
 import { getDashboardSummary, type DashboardSummaryResponse } from "../services/dashboardApi";
 import FinSightSidebar from "../components/ui/FinSightSidebar";
@@ -53,12 +49,6 @@ function money(value: number) {
 function percent(value: number) {
   const prefix = value > 0 ? "+" : "";
   return `${prefix}${value}%`;
-}
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "FS";
-  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "FS";
 }
 
 function Section({ title, subtitle, action, children }: SectionProps) {
@@ -129,11 +119,30 @@ function Badge({ children, color }: { children: ReactNode; color: string }) {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<AuthUser | null>(getStoredUser());
   const [summary, setSummary] = useState<DashboardSummaryResponse>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
-  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [refreshSeed, setRefreshSeed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleStatementUpdated = () => {
+      setRefreshSeed((value) => value + 1);
+    };
+
+    const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("finsight:statement-updated") : null;
+    const handleBroadcastMessage = () => {
+      setRefreshSeed((value) => value + 1);
+    };
+
+    window.addEventListener("finsight:statement-updated", handleStatementUpdated);
+    channel?.addEventListener("message", handleBroadcastMessage);
+
+    return () => {
+      window.removeEventListener("finsight:statement-updated", handleStatementUpdated);
+      channel?.removeEventListener("message", handleBroadcastMessage);
+      channel?.close();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -146,9 +155,8 @@ export default function DashboardPage() {
       }
 
       try {
-        const [profile, dashboard] = await Promise.all([fetchCurrentUser(), getDashboardSummary(token)]);
+        const dashboard = await getDashboardSummary(token);
         if (!active) return;
-        setUser(profile);
         setSummary(dashboard);
       } catch (requestError) {
         if (!active) return;
@@ -172,20 +180,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [navigate]);
-
-  async function handleLogout() {
-    setLogoutBusy(true);
-    try {
-      await logoutRequest();
-    } finally {
-      setLogoutBusy(false);
-      navigate("/login", { replace: true });
-    }
-  }
-
-  const displayName = user?.name || user?.email || "FinSight user";
-  const avatar = useMemo(() => initials(displayName), [displayName]);
+  }, [navigate, refreshSeed]);
   const topSummary = summary;
   const healthStatus = topSummary.healthScore >= 700 ? "Excellent" : topSummary.healthScore >= 500 ? "Healthy" : topSummary.healthScore >= 300 ? "Watch" : "Needs attention";
 

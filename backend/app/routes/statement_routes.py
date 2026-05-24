@@ -1,17 +1,41 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Header
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 import os
 from fastapi.responses import JSONResponse
 from typing import List
 
 from app.services.statement_service import analyze_statement_files
-from app.db.database import save_statement_analysis
+from app.db.database import get_data, save_statement_analysis
 
 router = APIRouter(prefix="/statements", tags=["Statements"])
+auth_scheme = HTTPBearer(auto_error=False)
+
+
+def _require_user_id(credentials: HTTPAuthorizationCredentials | None) -> str:
+    if not credentials or not credentials.credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    try:
+        payload = jwt.decode(credentials.credentials, os.getenv("Secret_key", "finsight-dev-secret"), algorithms=[os.getenv("algorithm", "HS256")])
+    except Exception as error:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token") from error
+
+    user_id = payload.get("sub") or payload.get("id")
+    if user_id:
+        return str(user_id)
+
+    email = payload.get("email")
+    if email:
+        user = get_data(str(email))
+        if user and user.get("_id"):
+            return str(user["_id"])
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
 
 @router.post("/upload")
-async def upload_statement(files: List[UploadFile] = File(...), authorization: str | None = Header(default=None)):
+async def upload_statement(files: List[UploadFile] = File(...), credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme)):
     """Accept multiple statement files, analyze them with OCR/Gemini, save the result, and return it."""
     try:
         analysis = await analyze_statement_files(files)
@@ -22,16 +46,8 @@ async def upload_statement(files: List[UploadFile] = File(...), authorization: s
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
 
-    user_key = "anonymous"
-    if authorization:
-        token = authorization.removeprefix("Bearer ").strip()
-        try:
-            payload = jwt.decode(token, os.getenv("Secret_key", "finsight-dev-secret"), algorithms=[os.getenv("algorithm", "HS256")])
-            user_key = str(payload.get("email") or payload.get("id") or payload.get("sub") or "anonymous")
-        except Exception:
-            user_key = "anonymous"
-
-    stored = save_statement_analysis(user_key, analysis)
+    user_id = _require_user_id(credentials)
+    stored = save_statement_analysis(user_id, analysis)
     stored.pop("_id", None)
     return JSONResponse(content=stored)
 
@@ -51,20 +67,12 @@ async def analyze(file: UploadFile = File(...)):
 
 
 @router.post("/save")
-async def save_analysis(payload: dict, authorization: str | None = Header(default=None)):
+async def save_analysis(payload: dict, credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme)):
     """Save a previously generated analysis payload under the requesting user key."""
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="Invalid payload")
 
-    user_key = "anonymous"
-    if authorization:
-        token = authorization.removeprefix("Bearer ").strip()
-        try:
-            payload_decoded = jwt.decode(token, os.getenv("Secret_key", "finsight-dev-secret"), algorithms=[os.getenv("algorithm", "HS256")])
-            user_key = str(payload_decoded.get("email") or payload_decoded.get("id") or payload_decoded.get("sub") or "anonymous")
-        except Exception:
-            user_key = "anonymous"
-
-    stored = save_statement_analysis(user_key, payload)
+    user_id = _require_user_id(credentials)
+    stored = save_statement_analysis(user_id, payload)
     stored.pop("_id", None)
     return JSONResponse(content=stored)

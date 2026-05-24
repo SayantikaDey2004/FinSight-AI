@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Toast } from "../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, BarChart3, Brain, CheckCircle, CloudUpload, File, RefreshCw, Target, Upload, Wallet } from "lucide-react";
-import { saveUploadSnapshot } from "../lib/transactionStore";
+import { clearAuthSession, getStoredAccessToken } from "../services/authApi";
 import { uploadStatementFiles } from "../services/statementApi";
 import FinSightSidebar from "../components/ui/FinSightSidebar";
 
@@ -37,6 +37,14 @@ export default function UploadPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) {
+      clearAuthSession();
+      navigate("/login", { replace: true });
+    }
+  }, [navigate]);
 
   const uploadedCount = useMemo(() => files.filter((item) => item.status === "done").length, [files]);
 
@@ -84,12 +92,16 @@ export default function UploadPage() {
 
       setFiles((previous) => previous.map((item) => ({ ...item, progress: 100, status: "done" })));
 
-      saveUploadSnapshot(analysis.files, analysis.transactions);
-
       setDone(true);
-        setToast("File uploaded and analyzed successfully.");
+      setToast(analysis.transactions.length > 0 ? "File uploaded and analyzed successfully." : "File uploaded, but no transactions were extracted yet.");
         window.setTimeout(() => navigate("/transactions"), 700);
     } catch (error) {
+      if (error instanceof Error && /(401|403|Not authenticated|Invalid or expired token)/i.test(error.message)) {
+        clearAuthSession();
+        navigate("/login", { replace: true });
+        return;
+      }
+
       setError(error instanceof Error ? error.message : "Upload failed. Please try again.");
       setFiles((previous) => previous.map((item) => ({ ...item, progress: 0, status: "idle" })));
     } finally {

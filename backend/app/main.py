@@ -96,8 +96,9 @@ def _get_user_by_email(email: str) -> dict[str, Any] | None:
 
 
 def _auth_payload(user: dict[str, Any]) -> dict[str, Any]:
-    access_token = _create_token({"email": user["email"], "purpose": "access"}, 20)
-    refresh_token = _create_token({"email": user["email"], "purpose": "refresh"}, 60 * 24 * 7)
+    user_id = str(user.get("_id", user.get("id", user.get("email", ""))))
+    access_token = _create_token({"sub": user_id, "email": user["email"], "purpose": "access"}, 20)
+    refresh_token = _create_token({"sub": user_id, "email": user["email"], "purpose": "refresh"}, 60 * 24 * 7)
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -120,22 +121,33 @@ def _require_bearer(credentials: HTTPAuthorizationCredentials | None) -> str:
 def home():
     return {"message": "success"}
 
+def _empty_dashboard_payload() -> dict[str, Any]:
+    return {
+        "healthScore": 0,
+        "totalIncome": 0,
+        "totalExpense": 0,
+        "currentBalance": 0,
+        "savings": 0,
+        "incomeChangePct": 0,
+        "expenseChangePct": 0,
+        "savingsPct": 0,
+        "transactionCount": 0,
+        "monthlyData": [],
+        "categories": [],
+        "recurring": [],
+        "unusual": [],
+        "aiInsights": [],
+        "txList": [],
+    }
+
+
 @app.get("/api/v1/dashboard/summary")
-async def get_dashboard_summary(authorization: str | None = Header(default=None)):
-    user_key = _statement_user_key(authorization)
-    stored = get_latest_statement_analysis(user_key)
-    if not stored:
-        stored = get_latest_statement_analysis("anonymous")
+async def get_dashboard_summary(credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme)):
+    user_id = _require_authenticated_user_id(credentials)
+    stored = get_latest_statement_analysis(user_id)
 
     if not stored:
-        # Return empty dashboard instead of 404
-        return {
-            "healthScore": 0, "totalIncome": 0, "totalExpense": 0,
-            "currentBalance": 0, "savings": 0, "incomeChangePct": 0,
-            "expenseChangePct": 0, "savingsPct": 0, "transactionCount": 0,
-            "monthlyData": [], "categories": [], "recurring": [],
-            "unusual": [], "aiInsights": [], "txList": []
-        }
+        return _empty_dashboard_payload()
 
     return _build_dashboard_payload(stored)
 @app.post("/api/v1/auth/signup")
@@ -289,16 +301,25 @@ async def logout():
     return {"message": "Logged out successfully.", "success": True}
 
 
-def _statement_user_key(authorization: str | None) -> str:
-    if not authorization:
-        return "anonymous"
+def _require_authenticated_user_id(credentials: HTTPAuthorizationCredentials | None) -> str:
+    if not credentials or not credentials.credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    token = authorization.removeprefix("Bearer ").strip()
-    decoded = _decode_token(token)
+    decoded = _decode_token(credentials.credentials)
     if not decoded:
-        return "anonymous"
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
-    return str(decoded.get("email") or decoded.get("id") or decoded.get("sub") or "anonymous")
+    user_id = decoded.get("sub") or decoded.get("id")
+    if user_id:
+        return str(user_id)
+
+    email = decoded.get("email")
+    if email:
+        user = _get_user_by_email(str(email))
+        if user:
+            return str(user.get("_id"))
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
 
 def _build_dashboard_payload(stored: dict[str, Any]) -> dict[str, Any]:
@@ -440,7 +461,7 @@ app.include_router(statement_router)
 
 
 @app.post("/api/v1/statements/upload")
-async def upload_statement(files: list[UploadFile] = File(...), authorization: str | None = Header(default=None)):
+async def upload_statement(files: list[UploadFile] = File(...), credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme)):
     """Accept statement files, analyze them immediately, and save the OCR result."""
     try:
         analysis = await analyze_statement_files(files)
@@ -451,18 +472,16 @@ async def upload_statement(files: list[UploadFile] = File(...), authorization: s
     except Exception as error:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {error}")
 
-    user_key = _statement_user_key(authorization)
-    stored = save_statement_analysis(user_key, analysis)
+    user_id = _require_authenticated_user_id(credentials)
+    stored = save_statement_analysis(user_id, analysis)
     stored.pop("_id", None)
     return stored
 
 
 @app.get("/api/v1/statements/latest")
-async def latest_statement(authorization: str | None = Header(default=None)):
-    user_key = _statement_user_key(authorization)
-    stored = get_latest_statement_analysis(user_key)
-    if not stored and user_key != "anonymous":
-        stored = get_latest_statement_analysis("anonymous")
+async def latest_statement(credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme)):
+    user_id = _require_authenticated_user_id(credentials)
+    stored = get_latest_statement_analysis(user_id)
 
     if not stored:
         raise HTTPException(status_code=404, detail="No uploaded statement analysis found.")

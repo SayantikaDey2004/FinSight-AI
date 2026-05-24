@@ -14,10 +14,10 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+import { clearAuthSession, getStoredAccessTokenCandidates } from "../services/authApi";
 import { fetchLatestStatementAnalysis, type UploadedStatementFile } from "../services/statementApi";
 import {
   buildTransactionSummary,
-  loadUploadSnapshot,
   type TransactionRecord,
 } from "../lib/transactionStore";
 import FinSightSidebar from "../components/ui/FinSightSidebar";
@@ -73,6 +73,7 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedStatementFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshSeed, setRefreshSeed] = useState(0);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_OPTIONS)[number]>("All");
@@ -81,6 +82,33 @@ export default function TransactionsPage() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const tokens = getStoredAccessTokenCandidates();
+    if (tokens.length === 0) {
+      clearAuthSession();
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    const handleStatementUpdated = () => {
+      setRefreshSeed((value) => value + 1);
+    };
+
+    const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("finsight:statement-updated") : null;
+    const handleBroadcastMessage = () => {
+      setRefreshSeed((value) => value + 1);
+    };
+
+    window.addEventListener("finsight:statement-updated", handleStatementUpdated);
+    channel?.addEventListener("message", handleBroadcastMessage);
+
+    return () => {
+      window.removeEventListener("finsight:statement-updated", handleStatementUpdated);
+      channel?.removeEventListener("message", handleBroadcastMessage);
+      channel?.close();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -99,18 +127,16 @@ export default function TransactionsPage() {
           setTransactions(latest.transactions);
           setUploadedFiles(latest.files || []);
         } else {
-          const snapshot = loadUploadSnapshot();
-          setTransactions(snapshot?.transactions || []);
-          setUploadedFiles(snapshot?.files || []);
+          setTransactions([]);
+          setUploadedFiles([]);
         }
       } catch {
         if (!mounted) {
           return;
         }
 
-        const snapshot = loadUploadSnapshot();
-        setTransactions(snapshot?.transactions || []);
-        setUploadedFiles(snapshot?.files || []);
+        setTransactions([]);
+        setUploadedFiles([]);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -138,9 +164,15 @@ export default function TransactionsPage() {
           setUploadedFiles(latest.files || []);
           setRefreshing(false);
           window.clearInterval(pollId);
+        } else if (pollAttempts > 4) {
+          setRefreshing(false);
+          window.clearInterval(pollId);
         }
-      } catch {
-        // ignore transient polling errors
+      } catch (error) {
+        if (error instanceof Error && /(401|403|Not authenticated|Invalid or expired token)/i.test(error.message)) {
+          clearAuthSession();
+          navigate("/login", { replace: true });
+        }
       }
     }, 3000);
 
@@ -150,7 +182,7 @@ export default function TransactionsPage() {
         window.clearInterval(pollId);
       }
     };
-  }, []);
+  }, [refreshSeed]);
 
   const summary = useMemo(() => buildTransactionSummary(transactions), [transactions]);
   const categories = useMemo(() => ["All", ...Object.keys(summary.categoryTotals)], [summary.categoryTotals]);

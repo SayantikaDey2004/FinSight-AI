@@ -10,6 +10,8 @@ db = client[os.getenv("data_base")]
 collection = db["user"]
 statement_collection = db["statement_analyses"]
 
+statement_collection.create_index("user_id", unique=True, sparse=True)
+
 
 def insert_data(user: dict):
     exist = collection.find_one({"email": user["email"]})
@@ -45,22 +47,22 @@ def update_password(email: str, new_password: str):
         return {"data": "not exists"}
 
 
-def save_statement_analysis(user_key: str, analysis: dict):
+def save_statement_analysis(user_id: str, analysis: dict):
     payload = {
         **analysis,
-        "user_key": user_key,
+        "user_id": user_id,
         "updated_at": datetime.utcnow(),
     }
     statement_collection.update_one(
-        {"user_key": user_key},
+        {"user_id": user_id},
         {"$set": payload},
         upsert=True,
     )
     return payload
 
 
-def get_latest_statement_analysis(user_key: str):
+def get_latest_statement_analysis(user_id: str):
     return statement_collection.find_one(
-        {"user_key": user_key},
+        {"user_id": user_id},
         sort=[("updated_at", -1)],
     )

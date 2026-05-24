@@ -1,4 +1,4 @@
-import { ApiError } from "./authApi";
+import { ApiError, getStoredAccessTokenCandidates } from "./authApi";
 
 export interface DashboardSummaryResponse {
   healthScore: number;
@@ -63,5 +63,24 @@ async function requestJson<T>(path: string, token: string): Promise<T> {
 }
 
 export function getDashboardSummary(token: string) {
-  return requestJson<DashboardSummaryResponse>("/dashboard/summary", token);
+  return requestJson<DashboardSummaryResponse>("/dashboard/summary", token).catch(async (error) => {
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      for (const candidate of getStoredAccessTokenCandidates()) {
+        if (candidate === token) {
+          continue;
+        }
+
+        try {
+          return await requestJson<DashboardSummaryResponse>("/dashboard/summary", candidate);
+        } catch (candidateError) {
+          if (candidateError instanceof ApiError && (candidateError.status === 401 || candidateError.status === 403)) {
+            continue;
+          }
+          throw candidateError;
+        }
+      }
+    }
+
+    throw error;
+  });
 }

@@ -28,19 +28,6 @@ export interface TransactionSummary {
   categoryTotals: Record<string, number>;
 }
 
-const STORAGE_KEY = "finsight_upload_snapshot";
-
-function safeWindowStorage() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return {
-    local: window.localStorage,
-    session: window.sessionStorage,
-  };
-}
-
 export function buildTransactionSummary(transactions: TransactionRecord[]): TransactionSummary {
   const totalIncome = transactions.filter((item) => item.type === "credit").reduce((sum, item) => sum + item.amount, 0);
   const totalExpense = transactions.filter((item) => item.type === "debit").reduce((sum, item) => sum + Math.abs(item.amount), 0);
@@ -65,49 +52,4 @@ export function buildTransactionSummary(transactions: TransactionRecord[]): Tran
     topCategory,
     categoryTotals,
   };
-}
-
-export function saveUploadSnapshot(files: Array<{ name: string; size: number; type: string }>, transactions: TransactionRecord[]) {
-  const storage = safeWindowStorage();
-  if (!storage) {
-    return;
-  }
-
-  const snapshot: UploadSnapshot = {
-    uploadedAt: new Date().toISOString(),
-    files,
-    transactions,
-  };
-
-  const raw = JSON.stringify(snapshot);
-  storage.local.setItem(STORAGE_KEY, raw);
-  storage.session.setItem(STORAGE_KEY, raw);
-}
-
-export function loadUploadSnapshot(): UploadSnapshot | null {
-  const storage = safeWindowStorage();
-  if (!storage) {
-    return null;
-  }
-
-  const raw = storage.local.getItem(STORAGE_KEY) || storage.session.getItem(STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw) as UploadSnapshot;
-  } catch {
-    return null;
-  }
-}
-
-export function clearUploadSnapshot() {
-  const storage = safeWindowStorage();
-  if (!storage) {
-    return;
-  }
-
-  storage.local.removeItem(STORAGE_KEY);
-  storage.session.removeItem(STORAGE_KEY);
 }
