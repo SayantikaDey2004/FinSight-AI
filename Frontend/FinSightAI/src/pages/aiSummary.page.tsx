@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
   ApiError,
   clearAuthSession,
-  fetchCurrentUser,
   getStoredAccessToken,
-  getStoredUser,
-  type AuthUser,
 } from "../services/authApi";
 import { getDashboardSummary, type DashboardSummaryResponse } from "../services/dashboardApi";
 import FinSightSidebar from "../components/ui/FinSightSidebar";
@@ -36,12 +33,6 @@ const EMPTY_SUMMARY: DashboardSummaryResponse = {
   aiInsights: [],
   txList: [],
 };
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "FS";
-  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "FS";
-}
 
 function Section({ title, subtitle, action, children }: SectionProps) {
   return (
@@ -90,7 +81,6 @@ function Badge({ children, color }: { children: ReactNode; color: string }) {
 
 export default function AiSummaryPage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<AuthUser | null>(getStoredUser());
   const [summary, setSummary] = useState<DashboardSummaryResponse>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,9 +96,8 @@ export default function AiSummaryPage() {
       }
 
       try {
-        const [profile, dashboard] = await Promise.all([fetchCurrentUser(), getDashboardSummary(token)]);
+        const dashboard = await getDashboardSummary(token);
         if (!active) return;
-        setUser(profile);
         setSummary(dashboard);
       } catch (requestError) {
         if (!active) return;
@@ -134,7 +123,6 @@ export default function AiSummaryPage() {
     };
   }, [navigate]);
 
-  const displayName = user?.name || user?.email || "FinSight user";
   const primaryInsight = summary.aiInsights[0];
   const secondaryInsights = summary.aiInsights.slice(1);
 

@@ -20,21 +20,12 @@ export interface DashboardSummaryResponse {
     status: "active" | "due" | "missed";
     icon: string;
     color: string;
-<<<<<<< HEAD
     category: string;
     count: number;
     avg_amount: number;
     cadence_months: number;
     next_due_date: string | null;
     unusual: boolean;
-=======
-    category?: string;
-    count?: number;
-    avg_amount?: number;
-    cadence_months?: number;
-    next_due_date?: string | null;
-    unusual?: boolean;
->>>>>>> 603ff88830926ab77ed1169523f4f7189e3d048a
   }>;
   unusual: Array<{ name: string; reason: string; amount: number; icon: string }>;
   aiInsights: Array<{ icon: string; title: string; text: string }>;

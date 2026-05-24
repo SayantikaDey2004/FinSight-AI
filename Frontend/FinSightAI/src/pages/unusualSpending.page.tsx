@@ -149,10 +149,6 @@ export default function UnusualSpendingPage() {
     };
   }, [navigate, refreshSeed]);
 
-<<<<<<< HEAD
-  const displayName = user?.name || user?.email || "FinSight user";
-=======
->>>>>>> 603ff88830926ab77ed1169523f4f7189e3d048a
   const topSpendingCategory = summary.categories[0];
 
   return (
