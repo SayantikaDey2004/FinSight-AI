@@ -47,6 +47,7 @@ async def upload_statement(files: List[UploadFile] = File(...), credentials: HTT
         raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
 
     user_id = _require_user_id(credentials)
+    print(f"[routes] upload_statement: saving analysis for user_id={user_id} transactions={len(analysis.get('transactions',[]) or [])}")
     stored = save_statement_analysis(user_id, analysis)
     stored.pop("_id", None)
     return JSONResponse(content=stored)

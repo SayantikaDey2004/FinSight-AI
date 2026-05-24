@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Toast } from "../lib/toast";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, BarChart3, Brain, CheckCircle, CloudUpload, File, RefreshCw, Target, Upload, Wallet } from "lucide-react";
+import { ArrowRight, BarChart3, Brain, CheckCircle, CloudUpload, File, RefreshCw, Target, Upload } from "lucide-react";
 import { clearAuthSession, getStoredAccessToken } from "../services/authApi";
-import { uploadStatementFiles } from "../services/statementApi";
+import { uploadStatementFiles, fetchLatestStatementAnalysis } from "../services/statementApi";
 import FinSightSidebar from "../components/ui/FinSightSidebar";
 
 interface UploadItem {
@@ -93,8 +93,31 @@ export default function UploadPage() {
       setFiles((previous) => previous.map((item) => ({ ...item, progress: 100, status: "done" })));
 
       setDone(true);
-      setToast(analysis.transactions.length > 0 ? "File uploaded and analyzed successfully." : "File uploaded, but no transactions were extracted yet.");
+      setToast(analysis.transactions.length > 0 ? "File uploaded and analyzed successfully." : "File uploaded — processing continues in background.");
+
+      // If backend returned no transactions yet, poll the latest analysis briefly
+      if (!analysis.transactions || analysis.transactions.length === 0) {
+        let attempts = 0;
+        const maxAttempts = 10;
+        const pollInterval = 2000;
+
+        while (attempts < maxAttempts) {
+          // eslint-disable-next-line no-await-in-loop
+          const latest = await fetchLatestStatementAnalysis();
+          if (latest && latest.transactions && latest.transactions.length > 0) {
+            window.setTimeout(() => navigate("/transactions"), 300);
+            return;
+          }
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, pollInterval));
+          attempts += 1;
+        }
+
+        // fallback: navigate anyway so user can see the pending state
         window.setTimeout(() => navigate("/transactions"), 700);
+      } else {
+        window.setTimeout(() => navigate("/transactions"), 700);
+      }
     } catch (error) {
       if (error instanceof Error && /(401|403|Not authenticated|Invalid or expired token)/i.test(error.message)) {
         clearAuthSession();

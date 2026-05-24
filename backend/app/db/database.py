@@ -53,6 +53,14 @@ def save_statement_analysis(user_id: str, analysis: dict):
         "user_id": user_id,
         "updated_at": datetime.utcnow(),
     }
+
+    try:
+        tx_count = len(analysis.get("transactions", []) or [])
+    except Exception:
+        tx_count = 0
+
+    print(f"[db] save_statement_analysis: user_id={user_id} transactions={tx_count}")
+
     statement_collection.update_one(
         {"user_id": user_id},
         {"$set": payload},

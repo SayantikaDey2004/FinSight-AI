@@ -526,10 +526,10 @@ def _parse_ocr_text_transactions(ocr_text: str) -> list[dict[str, Any]]:
     if not ocr_text.strip():
         return []
 
-    line_pattern = re.compile(
-        r"(?P<date>(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4})|(?:\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4})|(?:\d{4}-\d{2}-\d{2}))"
+    date_pattern = re.compile(
+        r"(?P<date>(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4})|(?:\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4})|(?:\d{4}-\d{2}-\d{2})|(?:\d{1,2}\s+[A-Za-z]{3,9}))"
     )
-    amount_pattern = re.compile(r"(?<!\d)(-?\d[\d,]*\.?\d{0,2})(?!\d)")
+    amount_pattern = re.compile(r"(?<!\d)(-?\d[\d,]*\.\d{2})(?!\d)")
     skip_tokens = (
         "balance forward",
         "opening balance",
@@ -537,52 +537,123 @@ def _parse_ocr_text_transactions(ocr_text: str) -> list[dict[str, Any]]:
         "transaction date",
         "date particulars",
         "statement summary",
+        "page no",
+        "s no",
+        "sl no",
     )
 
-    transactions: list[dict[str, Any]] = []
-    for raw_line in ocr_text.splitlines():
-        line = re.sub(r"\s+", " ", raw_line).strip()
-        if not line or len(line) < 6:
-            continue
-
-        lower = line.lower()
+    def _looks_like_row(text: str) -> bool:
+        lower = text.lower()
         if any(token in lower for token in skip_tokens):
-            continue
+            return False
+        return bool(date_pattern.search(text)) and bool(amount_pattern.search(text))
 
-        date_match = line_pattern.search(line)
+    def _finalize_row(row_text: str) -> dict[str, Any] | None:
+        row_text = re.sub(r"\s+", " ", row_text).strip()
+        if not row_text or not _looks_like_row(row_text):
+            return None
+
+        date_match = date_pattern.search(row_text)
         if not date_match:
-            continue
+            return None
 
-        amount_matches = amount_pattern.findall(line)
+        amount_matches = list(amount_pattern.finditer(row_text))
         if not amount_matches:
-            continue
+            return None
 
-        amount_text = amount_matches[-1]
-        amount_value = _clean_amount(amount_text)
-        if amount_value <= 0:
-            continue
+        numeric_amounts = [(_clean_amount(match.group(0)), match.start()) for match in amount_matches]
+        numeric_amounts = [(value, position) for value, position in numeric_amounts if value > 0]
+        if not numeric_amounts:
+            return None
 
-        description = line[:date_match.start()].strip(" |-\t")
-        tail = line[date_match.end():].strip(" |-\t")
-        merchant = " ".join(part for part in [description, tail] if part).strip() or line
+        # Most OCR rows place the transaction amount immediately after the narration
+        # and the running balance near the end of the row. Use the first amount that
+        # appears after the date as the transaction amount.
+        amount_candidates = [(value, position) for value, position in numeric_amounts if position >= date_match.end()]
+        if not amount_candidates:
+            amount_candidates = numeric_amounts
 
+        amount_candidates.sort(key=lambda item: item[1])
+        chosen_amount = amount_candidates[0][0]
+
+        if chosen_amount <= 0:
+            return None
+
+        date_text = date_match.group("date")
+        before_date = row_text[:date_match.start()].strip(" |\t-:")
+        after_date = row_text[date_match.end():].strip()
+
+        # Remove trailing numeric columns from the narration area.
+        after_date = re.sub(r"(?:\s+-?\d[\d,]*\.\d{2})+\s*$", "", after_date).strip(" |\t-:")
+        merchant = " ".join(part for part in [before_date, after_date] if part).strip()
+        if not merchant:
+            merchant = row_text
+
+        lower = row_text.lower()
         credit_tokens = (" cr", "credit", "deposit", "salary", "interest", "refund", "cashback", "reversal")
-        debit_tokens = (" dr", "debit", "withdraw", "upi", "imps", "neft", "rtgs", "paid", "charge", "fee", "purchase")
+        debit_tokens = (" dr", "debit", "withdraw", "upi", "imps", "neft", "rtgs", "paid", "charge", "fee", "purchase", "atm")
         is_credit = any(token in lower for token in credit_tokens)
         is_debit = any(token in lower for token in debit_tokens)
         raw_type = "credit" if is_credit and not is_debit else "debit"
 
-        transactions.append(
-            {
-                "date": date_match.group("date"),
-                "merchant": merchant,
-                "debit": 0.0 if raw_type == "credit" else amount_value,
-                "credit": amount_value if raw_type == "credit" else 0.0,
-                "balance": 0.0,
-                "amount": amount_value if raw_type == "credit" else -amount_value,
-                "type": raw_type,
-            }
-        )
+        balance_value = numeric_amounts[-1][0] if len(numeric_amounts) >= 2 else 0.0
+        amount_value = chosen_amount
+
+        return {
+            "date": date_text,
+            "merchant": merchant,
+            "debit": 0.0 if raw_type == "credit" else amount_value,
+            "credit": amount_value if raw_type == "credit" else 0.0,
+            "balance": balance_value,
+            "amount": amount_value if raw_type == "credit" else -amount_value,
+            "type": raw_type,
+        }
+
+    # First pass: parse each line independently.
+    transactions: list[dict[str, Any]] = []
+    pending_lines: list[str] = []
+
+    for raw_line in ocr_text.splitlines():
+        line = re.sub(r"\s+", " ", raw_line).strip()
+        if not line:
+            continue
+
+        if any(token in line.lower() for token in skip_tokens):
+            pending_lines.clear()
+            continue
+
+        if date_pattern.search(line):
+            if pending_lines:
+                candidate = " ".join(pending_lines)
+                parsed = _finalize_row(candidate)
+                if parsed:
+                    transactions.append(parsed)
+                pending_lines.clear()
+
+            pending_lines.append(line)
+            parsed = _finalize_row(line)
+            if parsed:
+                transactions.append(parsed)
+                pending_lines.clear()
+            continue
+
+        if pending_lines:
+            pending_lines.append(line)
+
+    if pending_lines:
+        parsed = _finalize_row(" ".join(pending_lines))
+        if parsed:
+            transactions.append(parsed)
+
+    # Second pass: some OCR output places narration on the next line and amounts on the following line.
+    if not transactions:
+        compact = re.sub(r"\s+", " ", ocr_text).strip()
+        split_pattern = re.compile(rf"(?=(?:{date_pattern.pattern}))")
+        candidates = [chunk.strip() for chunk in split_pattern.split(compact) if chunk.strip()]
+        for chunk in candidates:
+            parsed = _finalize_row(chunk)
+            if parsed:
+                transactions.append(parsed)
 
     return transactions
 
@@ -983,7 +1054,7 @@ def _analyze_file_bytes(file_bytes: bytes, filename: str, mime_type: str) -> lis
 
     ocr_text = _local_ocr_text()
     if ocr_text:
-        print(f"[statement_service] local OCR produced {len(ocr_text)} chars, asking Gemini to parse it")
+        print(f"[statement_service] local OCR produced {len(ocr_text)} chars for {filename}, attempting text-parse via Gemini")
         # Build a parsing prompt and ask Gemini (text) to return JSON transactions
         parse_prompt = (
             "You are a bank-statement parser. I will provide OCR text extracted from a bank statement. "
@@ -1000,12 +1071,13 @@ def _analyze_file_bytes(file_bytes: bytes, filename: str, mime_type: str) -> lis
                 for item in parsed.get("transactions", []):
                     if isinstance(item, dict):
                         transactions.append(item)
+                print(f"[statement_service] Gemini text-parse returned {len(transactions)} transactions for {filename}")
                 return transactions
         except Exception as e:
-            print(f"[statement_service] Gemini text-parse failed: {e}")
+            print(f"[statement_service] Gemini text-parse failed for {filename}: {e}")
             fallback_transactions = _parse_ocr_text_transactions(ocr_text)
+            print(f"[statement_service] OCR heuristic fallback extracted {len(fallback_transactions)} transaction(s) for {filename}")
             if fallback_transactions:
-                print(f"[statement_service] OCR heuristic fallback extracted {len(fallback_transactions)} transaction(s)")
                 return fallback_transactions
 
     # Fallback: ask Gemini to OCR+parse the file (inlineData) as before
@@ -1014,7 +1086,9 @@ def _analyze_file_bytes(file_bytes: bytes, filename: str, mime_type: str) -> lis
         parsed = _invoke_gemini(GEMINI_PROMPT, file_bytes, mime_type)
     except Exception as error:
         print(f"[statement_service] Gemini OCR unavailable for {filename}: {error}")
-        return _parse_ocr_text_transactions(ocr_text) if ocr_text else []
+        fallback = _parse_ocr_text_transactions(ocr_text) if ocr_text else []
+        print(f"[statement_service] Final fallback produced {len(fallback)} transaction(s) for {filename}")
+        return fallback
 
     transactions = []
     for item in parsed.get("transactions", []):
@@ -1044,6 +1118,8 @@ async def analyze_statement_files(upload_files: list[UploadFile]) -> dict[str, A
         filename, file_bytes, mime_type = await _read_upload_file(uf)
         uploaded_meta.append({"name": filename, "size": len(file_bytes), "type": mime_type})
         all_raw.extend(_analyze_file_bytes(file_bytes, filename, mime_type))
+
+    print(f"[statement_service] Completed per-file parsing; total raw rows extracted={len(all_raw)} from files={[f['name'] for f in uploaded_meta]}")
 
     # Normalize all transactions
     normalized = [_normalize_transaction(r, i + 1) for i, r in enumerate(all_raw)]
