@@ -11,15 +11,8 @@ import {
   type AuthUser,
 } from "../services/authApi";
 import { getDashboardSummary, type DashboardSummaryResponse } from "../services/dashboardApi";
+import FinSightSidebar from "../components/ui/FinSightSidebar";
 
-const SIDEBAR_LINKS = [
-  { label: "Dashboard", icon: "🏠", kind: "scroll", target: "dashboard-top" },
-  { label: "Transactions", icon: "💳", kind: "route", target: "/transactions" },
-  { label: "Recurring Payments", icon: "🔁", kind: "route", target: "/recurring-payments" },
-  { label: "Unusual Spending", icon: "⚠️", kind: "route", target: "/unusual-spending" },
-  { label: "AI Insights", icon: "🤖", kind: "route", target: "/ai-summary" },
-  { label: "Upload Statement", icon: "📂", kind: "route", target: "/upload" },
-] as const;
 
 interface SectionProps {
   title: string;
@@ -140,7 +133,6 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummaryResponse>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
   const [logoutBusy, setLogoutBusy] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -192,20 +184,6 @@ export default function DashboardPage() {
     }
   }
 
-  function handleSidebarAction(kind: "scroll" | "route", target: string) {
-    if (kind === "route") {
-      setSidebarOpen(false);
-      navigate(target);
-      return;
-    }
-
-    const element = document.getElementById(target);
-    if (element) {
-      setSidebarOpen(false);
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
-
   const displayName = user?.name || user?.email || "FinSight user";
   const avatar = useMemo(() => initials(displayName), [displayName]);
   const topSummary = summary;
@@ -220,6 +198,7 @@ export default function DashboardPage() {
       }}
     >
       <style>{`* { box-sizing: border-box; } body { margin: 0; }`}</style>
+      <FinSightSidebar />
 
       <header
         style={{
@@ -232,31 +211,9 @@ export default function DashboardPage() {
         }}
       >
         <div style={{ maxWidth: 1240, margin: "0 auto", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open navigation menu"
-              style={{
-                width: 46,
-                height: 46,
-                borderRadius: 16,
-                border: "1px solid rgba(148,163,184,0.16)",
-                background: "rgba(15,23,42,0.85)",
-                color: "#e2e8f0",
-                fontSize: 22,
-                fontWeight: 900,
-                cursor: "pointer",
-                display: "grid",
-                placeItems: "center",
-              }}
-            >
-              ☰
-            </button>
-            <div>
-              <div style={{ fontSize: 12, letterSpacing: "0.24em", textTransform: "uppercase", color: "#7dd3fc", fontWeight: 700 }}>FinSightAI</div>
-              <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>Financial dashboard</div>
-            </div>
+          <div>
+            <div style={{ fontSize: 12, letterSpacing: "0.24em", textTransform: "uppercase", color: "#7dd3fc", fontWeight: 700 }}>FinSightAI</div>
+            <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 4 }}>Financial dashboard</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ textAlign: "right" }}>
@@ -298,102 +255,12 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {sidebarOpen && (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setSidebarOpen(false)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
-              setSidebarOpen(false);
-            }
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(2,6,23,0.62)",
-            zIndex: 30,
-          }}
-        >
-          <aside
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              position: "absolute",
-              top: 12,
-              left: 12,
-              width: 320,
-              maxWidth: "calc(100vw - 24px)",
-              height: "calc(100vh - 24px)",
-              background: "rgba(8, 13, 28, 0.98)",
-              border: "1px solid rgba(148,163,184,0.14)",
-              borderRadius: 24,
-              padding: 18,
-              boxShadow: "0 30px 80px rgba(0,0,0,0.45)",
-              overflowY: "auto",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#7dd3fc", fontWeight: 800 }}>Navigation</div>
-                <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 13 }}>Quick links</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                aria-label="Close navigation menu"
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 12,
-                  border: "1px solid rgba(148,163,184,0.16)",
-                  background: "rgba(15,23,42,0.85)",
-                  color: "#e2e8f0",
-                  fontSize: 20,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              {SIDEBAR_LINKS.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => handleSidebarAction(item.kind, item.target)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    width: "100%",
-                    padding: "12px 14px",
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.12)",
-                    background: item.label === "Dashboard" ? "rgba(14,165,233,0.12)" : "rgba(255,255,255,0.03)",
-                    color: item.label === "Dashboard" ? "#7dd3fc" : "#e2e8f0",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    fontWeight: 700,
-                  }}
-                >
-                  <span style={{ fontSize: 18 }}>{item.icon}</span>
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </aside>
-        </div>
-      )}
-
       <main style={{ maxWidth: 1240, margin: "0 auto", padding: "24px 20px 56px" }}>
-        <div style={{ minWidth: 0 }}>
-          <div id="dashboard-top" />
-          {error && (
-            <div style={{ marginBottom: 18, padding: "14px 16px", borderRadius: 16, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#fecaca" }}>
-              {error}
-            </div>
-          )}
+        {error && (
+          <div style={{ marginBottom: 18, padding: "14px 16px", borderRadius: 16, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#fecaca" }}>
+            {error}
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, marginBottom: 20 }}>
           <MetricCard label="Health score" value={loading ? "…" : `${topSummary.healthScore}/850`} hint={healthStatus} accent="linear-gradient(90deg, #0ea5e9, #22c55e)" />
@@ -474,40 +341,38 @@ export default function DashboardPage() {
             </div>
           </Section>
 
-        <Section title="Transaction history" subtitle="Latest transactions returned by the backend" action={<div id="transactions"><Badge color="#0ea5e9">Transactions</Badge></div>}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Date", "Transaction", "Category", "Amount", "Status"].map((column) => (
-                    <th key={column} style={{ textAlign: "left", padding: "12px 10px", fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.14em", borderBottom: "1px solid rgba(148,163,184,0.12)" }}>{column}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {topSummary.txList.length > 0 ? topSummary.txList.map((tx) => (
-                  <tr key={`${tx.date}-${tx.name}`} style={{ borderBottom: "1px solid rgba(148,163,184,0.08)" }}>
-                    <td style={{ padding: "14px 10px", color: "#94a3b8" }}>{tx.date}</td>
-                    <td style={{ padding: "14px 10px" }}>
-                      <div style={{ fontWeight: 700 }}>{tx.name}</div>
-                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{tx.bank}</div>
-                    </td>
-                    <td style={{ padding: "14px 10px" }}><Badge color={tx.catColor}>{tx.cat}</Badge></td>
-                    <td style={{ padding: "14px 10px", fontWeight: 800, color: tx.amount >= 0 ? "#22c55e" : "#fca5a5" }}>{tx.amount >= 0 ? "+" : "-"}{money(tx.amount)}</td>
-                    <td style={{ padding: "14px 10px" }}><Badge color={tx.status === "completed" ? "#22c55e" : tx.status === "pending" ? "#f59e0b" : "#ef4444"}>{tx.status}</Badge></td>
-                  </tr>
-                )) : (
+          <Section title="Transaction history" subtitle="Latest transactions returned by the backend" action={<div id="transactions"><Badge color="#0ea5e9">Transactions</Badge></div>}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
                   <tr>
-                    <td colSpan={5} style={{ padding: 20, color: "#94a3b8" }}>No transactions yet.</td>
+                    {["Date", "Transaction", "Category", "Amount", "Status"].map((column) => (
+                      <th key={column} style={{ textAlign: "left", padding: "12px 10px", fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.14em", borderBottom: "1px solid rgba(148,163,184,0.12)" }}>{column}</th>
+                    ))}
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Section>
-
+                </thead>
+                <tbody>
+                  {topSummary.txList.length > 0 ? topSummary.txList.map((tx) => (
+                    <tr key={`${tx.date}-${tx.name}`} style={{ borderBottom: "1px solid rgba(148,163,184,0.08)" }}>
+                      <td style={{ padding: "14px 10px", color: "#94a3b8" }}>{tx.date}</td>
+                      <td style={{ padding: "14px 10px" }}>
+                        <div style={{ fontWeight: 700 }}>{tx.name}</div>
+                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{tx.bank}</div>
+                      </td>
+                      <td style={{ padding: "14px 10px" }}><Badge color={tx.catColor}>{tx.cat}</Badge></td>
+                      <td style={{ padding: "14px 10px", fontWeight: 800, color: tx.amount >= 0 ? "#22c55e" : "#fca5a5" }}>{tx.amount >= 0 ? "+" : "-"}{money(tx.amount)}</td>
+                      <td style={{ padding: "14px 10px" }}><Badge color={tx.status === "completed" ? "#22c55e" : tx.status === "pending" ? "#f59e0b" : "#ef4444"}>{tx.status}</Badge></td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 20, color: "#94a3b8" }}>No transactions yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Section>
         </div>
-      </div>
       </main>
     </div>
   );
