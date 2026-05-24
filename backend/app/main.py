@@ -7,14 +7,14 @@ from typing import Any
 
 import jwt
 from bson import ObjectId
-from fastapi import Depends, FastAPI, File, HTTPException, Header, UploadFile, status, BackgroundTasks
+from fastapi import Depends, FastAPI, File, HTTPException, Header, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from dotenv import load_dotenv
 from pathlib import Path
 
 # Load environment from backend/.env (kept out of VCS)
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
 
 from app.db.database import (
     collection,
@@ -26,7 +26,7 @@ from app.db.database import (
     update_password,
 )
 from app.models.pydantic_models import ForgotPasswordRequest, LoginRequest, ResetPasswordRequest, SignupRequest
-from app.services.statement_service import analyze_statement_files, analyze_statement_from_bytes
+from app.services.statement_service import analyze_statement_files
 from app.routes.statement_routes import router as statement_router
 from modules.hashed_password import check_password, create_hashed_password
 
@@ -373,38 +373,20 @@ app.include_router(statement_router)
 
 
 @app.post("/api/v1/statements/upload")
-async def upload_statement(background: BackgroundTasks, files: list[UploadFile] = File(...), authorization: str | None = Header(default=None)):
-    """Accept statement files, save a quick placeholder, and process OCR/analysis in the background."""
-    uploaded_meta = []
-    raw_files = []
-    for f in files:
-        b = await f.read()
-        uploaded_meta.append({"name": f.filename or "file", "size": len(b), "type": f.content_type})
-        raw_files.append({"filename": f.filename or "file", "bytes": b, "content_type": f.content_type})
+async def upload_statement(files: list[UploadFile] = File(...), authorization: str | None = Header(default=None)):
+    """Accept statement files, analyze them immediately, and save the OCR result."""
+    try:
+        analysis = await analyze_statement_files(files)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {error}")
 
     user_key = _statement_user_key(authorization)
-    placeholder = {
-        "uploaded_at": dt.datetime.utcnow().isoformat(),
-        "files": uploaded_meta,
-        "summary": {"total_income": 0, "total_expense": 0, "net_savings": 0, "savings_rate": 0, "top_spending_category": "N/A", "transaction_count": 0, "category_breakdown": {}},
-        "transactions": [],
-        "recurring": [],
-        "unusual": [],
-        "ai_summary": {},
-        "monthly_trend": [],
-    }
-
-    stored = save_statement_analysis(user_key, placeholder)
+    stored = save_statement_analysis(user_key, analysis)
     stored.pop("_id", None)
-
-    def _bg_analyze_and_save(user_key: str, raw_files: list[dict[str, Any]]):
-        try:
-            result = analyze_statement_from_bytes(raw_files)
-            save_statement_analysis(user_key, result)
-        except Exception as error:
-            print(f"[main.upload_statement] Background analysis failed: {error}")
-
-    background.add_task(_bg_analyze_and_save, user_key, raw_files)
     return stored
 
 

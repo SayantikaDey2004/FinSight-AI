@@ -79,11 +79,15 @@ export default function TransactionsPage() {
   const [onlyUnusual, setOnlyUnusual] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    let pollId: number | undefined;
+    let pollAttempts = 0;
 
     async function loadTransactionsFromBackend() {
+      setRefreshing(true);
       try {
         const latest = await fetchLatestStatementAnalysis();
         if (!mounted) {
@@ -109,14 +113,41 @@ export default function TransactionsPage() {
       } finally {
         if (mounted) {
           setLoading(false);
+          setRefreshing(false);
         }
       }
     }
 
     void loadTransactionsFromBackend();
 
+    // Keep polling briefly so background OCR results appear automatically after upload.
+    pollId = window.setInterval(async () => {
+      if (!mounted) return;
+      pollAttempts += 1;
+      if (pollAttempts > 10) {
+        window.clearInterval(pollId);
+        return;
+      }
+
+      try {
+        const latest = await fetchLatestStatementAnalysis();
+        if (!mounted) return;
+        if (latest?.transactions?.length) {
+          setTransactions(latest.transactions);
+          setUploadedFiles(latest.files || []);
+          setRefreshing(false);
+          window.clearInterval(pollId);
+        }
+      } catch {
+        // ignore transient polling errors
+      }
+    }, 3000);
+
     return () => {
       mounted = false;
+      if (pollId) {
+        window.clearInterval(pollId);
+      }
     };
   }, []);
 
@@ -195,6 +226,11 @@ export default function TransactionsPage() {
               <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "#7dd3fc", fontWeight: 700 }}>Uploaded data</div>
               <h1 style={{ marginTop: 10, marginBottom: 6, fontSize: 34, letterSpacing: "-0.05em", lineHeight: 1.08 }}>Transaction <span style={{ color: "#38bdf8" }}>History</span></h1>
               <p style={{ color: "#94a3b8", maxWidth: 720 }}>This page loads the backend OCR result for the latest uploaded statement. If the server is unavailable, it falls back to the last saved upload snapshot only.</p>
+              {refreshing && (
+                <div style={{ marginTop: 10, color: "#7dd3fc", fontSize: 13 }}>
+                  Processing OCR in the background, refreshing results automatically...
+                </div>
+              )}
             </div>
             <div style={{ minWidth: 240, padding: 16, borderRadius: 18, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.12)" }}>
               <div style={{ fontSize: 12, color: "#7dd3fc", textTransform: "uppercase", letterSpacing: "0.18em", fontWeight: 700 }}>Uploaded files</div>
