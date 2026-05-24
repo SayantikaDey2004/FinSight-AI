@@ -44,7 +44,7 @@ def _csv_env(name: str, default: str) -> list[str]:
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://finsightai-delta.vercel.app").strip().rstrip("/")
 ALLOWED_ORIGINS = _csv_env(
     "CORS_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000",
+    "https://finsightai-delta.vercel.app",
 )
 if FRONTEND_URL:
     ALLOWED_ORIGINS.append(FRONTEND_URL)
