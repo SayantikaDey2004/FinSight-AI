@@ -1,7 +1,6 @@
 import { ApiError, getStoredAccessToken, getStoredAccessTokenCandidates } from "./authApi";
 import type { TransactionRecord, TransactionSummary } from "../lib/transactionStore";
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8000/api/v1";
+import { API_BASE_URL } from "../lib/apiConfig";
 
 export interface UploadedStatementFile {
   name: string;

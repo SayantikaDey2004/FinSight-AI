@@ -135,7 +135,6 @@ export default function AiSummaryPage() {
   }, [navigate]);
 
   const displayName = user?.name || user?.email || "FinSight user";
-  const avatar = useMemo(() => initials(displayName), [displayName]);
   const primaryInsight = summary.aiInsights[0];
   const secondaryInsights = summary.aiInsights.slice(1);
 

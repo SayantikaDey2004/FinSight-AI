@@ -139,7 +139,6 @@ export default function UnusualSpendingPage() {
   }, [navigate]);
 
   const displayName = user?.name || user?.email || "FinSight user";
-  const avatar = useMemo(() => initials(displayName), [displayName]);
   const topSpendingCategory = summary.categories[0];
 
   return (

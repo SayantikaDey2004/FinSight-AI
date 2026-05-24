@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -146,7 +146,6 @@ export default function RecurringPaymentsPage() {
   }, [navigate]);
 
   const displayName = user?.name || user?.email || "FinSight user";
-  const avatar = useMemo(() => initials(displayName), [displayName]);
   const recurring = summary.recurring;
 
   return (

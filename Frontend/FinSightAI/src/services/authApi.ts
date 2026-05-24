@@ -76,6 +76,8 @@ export interface StatementAnalysisResponse {
   monthly_trend: StatementMonthlyTrendItem[];
 }
 
+import { API_BASE_URL } from "../lib/apiConfig";
+
 export class ApiError extends Error {
   status: number;
 
@@ -85,8 +87,6 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
-
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8000/api/v1";
 
 const ACCESS_TOKEN_KEY = "finsight_access_token";
 const REFRESH_TOKEN_KEY = "finsight_refresh_token";
