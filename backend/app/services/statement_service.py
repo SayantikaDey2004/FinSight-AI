@@ -209,7 +209,10 @@ DATE_FORMATS = [
 # ── Gemini helpers ────────────────────────────────────────────────────────────
 
 def _gemini_api_key() -> str | None:
-    return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_GEMINI_API_KEY")
+    val = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_GEMINI_API_KEY")
+    if not val:
+        return None
+    return val.strip()
 
 
 def _gemini_model() -> str:
@@ -276,7 +279,8 @@ def _invoke_gemini(prompt: str, file_bytes: bytes, mime_type: str) -> dict[str, 
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=120) as response:
+        print(f"[statement_service] Calling Gemini OCR for mime={mime_type}, bytes={len(file_bytes)}")
+        with urllib.request.urlopen(req, timeout=30) as response:
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as error:
         error_body = error.read().decode("utf-8", errors="ignore")
@@ -293,6 +297,56 @@ def _invoke_gemini(prompt: str, file_bytes: bytes, mime_type: str) -> dict[str, 
     text = "".join(part.get("text", "") for part in parts if isinstance(part, dict))
     if not text:
         raise RuntimeError("Gemini returned an empty OCR payload.")
+
+    return _extract_json_block(text)
+
+
+def _invoke_gemini_text(prompt: str) -> dict[str, Any]:
+    api_key = _gemini_api_key()
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not configured on the backend.")
+
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": prompt},
+                ],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "responseMimeType": "application/json",
+        },
+    }
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{_gemini_model()}:generateContent?key={api_key}"
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            raw = response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        error_body = error.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Gemini request failed: {error_body or error.reason}") from error
+    except urllib.error.URLError as error:
+        raise RuntimeError(f"Gemini request failed: {error.reason}") from error
+
+    data = json.loads(raw)
+    candidates = data.get("candidates") or []
+    if not candidates:
+        raise RuntimeError("Gemini returned no candidates.")
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    text = "".join(part.get("text", "") for part in parts if isinstance(part, dict))
+    if not text:
+        raise RuntimeError("Gemini returned an empty payload.")
 
     return _extract_json_block(text)
 
@@ -700,6 +754,39 @@ def _build_ai_summary(
         f"Spending is led by {summary['top_spending_category']}."
     )
 
+    # Heuristic summary prepared; attempt to enrich with Gemini if configured below.
+
+    # If a Gemini API key is configured, ask the model to produce an enriched JSON summary.
+    try:
+        api_key = _gemini_api_key()
+        if api_key:
+            # Prepare a compact payload for the model (prevent huge prompts)
+            sample_tx = transactions[:30]
+            prompt = json.dumps({
+                "instructions": "You are a helpful financial assistant. Produce a JSON object with keys: overview (string), observations (array of strings), recommendations (array of strings), health_score (integer 0-100). Use the provided data to be concise.",
+                "summary": summary,
+                "recurring": recurring,
+                "unusual_count": len(unusual),
+                "transactions_sample": sample_tx,
+            }, default=str)
+
+            try:
+                model_output = _invoke_gemini_text(prompt)
+                # Validate structure and merge with heuristics where fields missing
+                if isinstance(model_output, dict):
+                    return {
+                        "overview": model_output.get("overview", overview),
+                        "observations": model_output.get("observations", observations),
+                        "recommendations": model_output.get("recommendations", recommendations),
+                        "health_score": int(model_output.get("health_score", health_score)),
+                        "health_score_reason": model_output.get("health_score_reason", (f"Score based on {sr}% savings rate, {len(unusual)} unusual transaction(s), and {len(recurring)} recurring payment(s).")),
+                    }
+            except Exception:
+                # Fall back to heuristic output on any model error
+                pass
+    except Exception:
+        pass
+
     return {
         "overview": overview,
         "observations": observations,
@@ -743,7 +830,64 @@ def _analyze_file_bytes(file_bytes: bytes, filename: str, mime_type: str) -> lis
     if mime_type == "text/csv" or filename.lower().endswith(".csv"):
         return _parse_csv_bytes(file_bytes)
 
-    # PDF / image — use Gemini OCR
+    # PDF / image — try local OCR (pytesseract/pdf2image) first, then ask Gemini to parse the extracted text.
+    print(f"[statement_service] _analyze_file_bytes: processing {filename} ({mime_type})")
+
+    # Helper: attempt local OCR to get raw text
+    def _local_ocr_text() -> str | None:
+        try:
+            import io
+            from PIL import Image
+            import pytesseract
+        except Exception as e:
+            print(f"[statement_service] local OCR libs unavailable: {e}")
+            return None
+
+        try:
+            if filename.lower().endswith(".pdf"):
+                try:
+                    from pdf2image import convert_from_bytes
+                except Exception as e:
+                    print(f"[statement_service] pdf2image import failed: {e}")
+                    return None
+
+                images = convert_from_bytes(file_bytes)
+                texts = []
+                for img in images:
+                    texts.append(pytesseract.image_to_string(img))
+                return "\n".join(texts)
+            else:
+                img = Image.open(io.BytesIO(file_bytes))
+                return pytesseract.image_to_string(img)
+        except Exception as e:
+            print(f"[statement_service] local OCR failed: {e}")
+            return None
+
+    ocr_text = _local_ocr_text()
+    if ocr_text:
+        print(f"[statement_service] local OCR produced {len(ocr_text)} chars, asking Gemini to parse it")
+        # Build a parsing prompt and ask Gemini (text) to return JSON transactions
+        parse_prompt = (
+            "You are a bank-statement parser. I will provide OCR text extracted from a bank statement. "
+            "Extract ALL transactions found in the text and return ONLY valid JSON matching this shape:"
+            "{\"transactions\": [{\"date\": \"string\", \"merchant\": \"string\", \"debit\": number, \"credit\": number, \"balance\": number, \"type\": \"debit|credit\"}]}\n"
+            "Do not include any explanation. Use the exact amounts shown."
+            "Here is the OCR text:\n\n" + (ocr_text[:120000])
+        )
+
+        try:
+            parsed = _invoke_gemini_text(parse_prompt)
+            if isinstance(parsed, dict) and parsed.get("transactions"):
+                transactions = []
+                for item in parsed.get("transactions", []):
+                    if isinstance(item, dict):
+                        transactions.append(item)
+                return transactions
+        except Exception as e:
+            print(f"[statement_service] Gemini text-parse failed: {e}")
+
+    # Fallback: ask Gemini to OCR+parse the file (inlineData) as before
+    print(f"[statement_service] Falling back to remote Gemini OCR for {filename}")
     parsed = _invoke_gemini(GEMINI_PROMPT, file_bytes, mime_type)
     transactions = []
     for item in parsed.get("transactions", []):
@@ -767,6 +911,8 @@ async def analyze_statement_files(upload_files: list[UploadFile]) -> dict[str, A
     all_raw: list[dict[str, Any]] = []
     uploaded_meta: list[dict[str, Any]] = []
 
+    print(f"[statement_service] Starting analysis for {len(upload_files)} file(s)")
+
     for uf in upload_files:
         filename, file_bytes, mime_type = await _read_upload_file(uf)
         uploaded_meta.append({"name": filename, "size": len(file_bytes), "type": mime_type})
@@ -781,6 +927,43 @@ async def analyze_statement_files(upload_files: list[UploadFile]) -> dict[str, A
         t["id"] = i
 
     # Analytics
+    normalized = _mark_unusual(normalized)
+    summary = _compute_summary(normalized)
+    recurring = _build_recurring(normalized)
+    unusual = [t for t in normalized if t["unusual"]]
+    monthly_trend = _build_monthly_trend(normalized)
+    ai_summary = _build_ai_summary(summary, recurring, unusual, normalized)
+
+    return {
+        "uploaded_at": datetime.utcnow().isoformat(),
+        "files": uploaded_meta,
+        "summary": summary,
+        "transactions": normalized,
+        "recurring": recurring,
+        "unusual": unusual,
+        "ai_summary": ai_summary,
+        "monthly_trend": monthly_trend,
+    }
+
+
+def analyze_statement_from_bytes(raw_files: list[dict[str, Any]]) -> dict[str, Any]:
+    """Analyze already-read file bytes (used by background upload processing)."""
+    all_raw: list[dict[str, Any]] = []
+    uploaded_meta: list[dict[str, Any]] = []
+
+    for item in raw_files:
+        filename = str(item.get("filename") or "statement")
+        file_bytes = item.get("bytes") or b""
+        content_type = item.get("content_type")
+        mime_type = _guess_mime_type(filename, content_type)
+        uploaded_meta.append({"name": filename, "size": len(file_bytes), "type": mime_type})
+        all_raw.extend(_analyze_file_bytes(file_bytes, filename, mime_type))
+
+    normalized = [_normalize_transaction(r, i + 1) for i, r in enumerate(all_raw)]
+    normalized.sort(key=lambda t: t["date"], reverse=True)
+    for i, t in enumerate(normalized, start=1):
+        t["id"] = i
+
     normalized = _mark_unusual(normalized)
     summary = _compute_summary(normalized)
     recurring = _build_recurring(normalized)

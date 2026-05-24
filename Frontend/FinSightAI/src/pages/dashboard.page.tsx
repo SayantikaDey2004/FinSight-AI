@@ -323,6 +323,11 @@ export default function DashboardPage() {
                 <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.16em", color: "#7dd3fc", fontWeight: 800 }}>Savings rate</div>
                 <div style={{ marginTop: 8, fontSize: 26, fontWeight: 800 }}>{topSummary.savingsPct}%</div>
               </div>
+              <div style={{ padding: 14, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.1)" }}>
+                <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.16em", color: "#7dd3fc", fontWeight: 800 }}>Top spending</div>
+                <div style={{ marginTop: 8, fontSize: 20, fontWeight: 800 }}>{topSummary.categories.length > 0 ? topSummary.categories[0].name : "—"}</div>
+                <div style={{ marginTop: 6, color: "#94a3b8", fontSize: 13 }}>{topSummary.categories.length > 0 ? money(topSummary.categories[0].amount) : "No data"}</div>
+              </div>
               <button
                 type="button"
                 onClick={handleUpload}
@@ -352,18 +357,27 @@ export default function DashboardPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <Section title="Categories" subtitle="Spending distribution by category">
-            <div style={{ display: "grid", gap: 12 }}>
-              {topSummary.categories.length > 0 ? topSummary.categories.map((category) => (
-                <div key={category.name} style={{ display: "grid", gap: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <span style={{ color: "#e2e8f0", fontWeight: 700 }}>{category.name}</span>
-                    <span style={{ color: category.color }}>{money(category.amount)}</span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 12, alignItems: "start" }}>
+              <div style={{ display: "grid", gap: 12 }}>
+                {topSummary.categories.length > 0 ? topSummary.categories.map((category) => (
+                  <div key={category.name} style={{ display: "grid", gap: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <span style={{ color: "#e2e8f0", fontWeight: 700 }}>{category.name}</span>
+                      <span style={{ color: category.color }}>{money(category.amount)}</span>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+                      <div style={{ width: `${category.pct}%`, height: "100%", background: category.color }} />
+                    </div>
                   </div>
-                  <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
-                    <div style={{ width: `${category.pct}%`, height: "100%", background: category.color }} />
-                  </div>
-                </div>
-              )) : <div style={{ color: "#94a3b8" }}>No category data yet.</div>}
+                )) : <div style={{ color: "#94a3b8" }}>No category data yet.</div>}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {topSummary.categories.length > 0 ? (
+                  <PieChart size={180} items={topSummary.categories.map((c) => ({ name: c.name, amount: c.amount, color: c.color }))} />
+                ) : (
+                  <div style={{ color: "#94a3b8" }}>No data for chart.</div>
+                )}
+              </div>
             </div>
           </Section>
 
@@ -454,5 +468,37 @@ export default function DashboardPage() {
         )}
       </main>
     </div>
+  );
+}
+
+function PieChart({ items, size = 160 }: { items: Array<{ name: string; amount: number; color: string }>; size?: number }) {
+  const total = items.reduce((s, it) => s + Math.max(0, it.amount), 0) || 1;
+  let startAngle = 0;
+  const radius = size / 2;
+  const center = size / 2;
+
+  function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+    const angleRad = ((angleDeg - 90) * Math.PI) / 180.0;
+    return { x: cx + r * Math.cos(angleRad), y: cy + r * Math.sin(angleRad) };
+  }
+
+  function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+    const start = polarToCartesian(cx, cy, r, endAngle);
+    const end = polarToCartesian(cx, cy, r, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+    return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y} Z`;
+  }
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block" }}>
+      {items.map((it, idx) => {
+        const value = Math.max(0, it.amount);
+        const angle = (value / total) * 360;
+        const path = describeArc(center, center, radius - 2, startAngle, startAngle + angle);
+        startAngle += angle;
+        return <path key={idx} d={path} fill={it.color} stroke="#0b1220" strokeWidth={0.5} />;
+      })}
+      <circle cx={center} cy={center} r={radius * 0.45} fill="#07101a" />
+    </svg>
   );
 }
